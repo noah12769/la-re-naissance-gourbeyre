@@ -1,0 +1,20 @@
+<svg width="180" height="180" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+<circle cx="90" cy="90" r="90" fill="#E24E1B"/>
+<text x="90" y="83" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="17" letter-spacing="0.5" fill="#17120C">NOUS</text>
+<text x="90" y="105" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="17" letter-spacing="0.5" fill="#17120C">CONTACTER</text>
+<g filter="url(#filter0_d_247_4883)">
+<circle cx="90" cy="90" r="81.25" stroke="#17120C" stroke-width="1.5" stroke-dasharray="6 6" shape-rendering="crispEdges"/>
+</g>
+<defs>
+<filter id="filter0_d_247_4883" x="4" y="8" width="172" height="172" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+<feOffset dy="4"/>
+<feGaussianBlur stdDeviation="2"/>
+<feComposite in2="hardAlpha" operator="out"/>
+<feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.25 0"/>
+<feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_247_4883"/>
+<feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_247_4883" result="shape"/>
+</filter>
+</defs>
+</svg>
