@@ -190,6 +190,7 @@
     // width:100% of the hero container, so it's the actual space to fit inside.
     var box = document.querySelector('.hero-block');
     var orange = document.querySelector('.hero-image');
+    var innerBlockEl = document.querySelector('.hero-inner-block');
     if (!heading || !box || !orange) return;
 
     function fit() {
@@ -201,14 +202,16 @@
         heading.style.fontSize = Math.floor(current * (available / natural)) + 'px';
       }
       // Width alone isn't always enough: at some desktop widths the (now width-fitted)
-      // title is still tall enough to poke a few px into the orange block above it. Nudge
-      // it down further in that case, but never below a legible floor -- a few px of
-      // overlap at an extreme size beats crushing the title unreadable trying to chase it.
+      // title is still tall enough to poke into the orange block above it, or leave no
+      // room for the tagline/buttons below it. Nudge it down further in that case, but
+      // never below a legible floor -- a bit of tightness at an extreme size beats
+      // crushing the title unreadable trying to chase it.
       var guard = 12;
       var floor = 56;
       while (guard-- > 0) {
-        var overlap = heading.getBoundingClientRect().top < orange.getBoundingClientRect().bottom - 1;
-        if (!overlap) break;
+        var overlapAbove = heading.getBoundingClientRect().top < orange.getBoundingClientRect().bottom - 1;
+        var overlapBelow = innerBlockEl && innerBlockEl.getBoundingClientRect().top < heading.getBoundingClientRect().bottom + TARGET_GAP - 1;
+        if (!overlapAbove && !overlapBelow) break;
         var size = parseFloat(getComputedStyle(heading).fontSize);
         if (size <= floor) break;
         heading.style.fontSize = Math.max(floor, Math.floor(size * 0.95)) + 'px';
@@ -225,10 +228,19 @@
       // moves. transform, on the other hand, doesn't participate in flex sizing at all --
       // it just visually shifts the box, which is exactly what's needed to set the gap
       // against the separately (absolutely) positioned orange block above.
+      // Moving heading-block alone was the bug: pushing it DOWN to gain gap above (against
+      // the orange block) ate directly into the gap below (against the tagline/buttons),
+      // since nothing was telling the inner block to follow. Move both together as one
+      // rigid unit instead -- their own gap to each other (Oak's own flex gap) stays
+      // exactly as laid out, only the pair's position relative to the fixed orange block
+      // above changes.
       var headingBlock = document.querySelector('.hero-heading-block');
       headingBlock.style.transform = 'none';
+      if (innerBlockEl) innerBlockEl.style.transform = 'none';
       var gapNow = heading.getBoundingClientRect().top - orange.getBoundingClientRect().bottom;
-      headingBlock.style.transform = 'translateY(' + (TARGET_GAP - gapNow) + 'px)';
+      var shift = (TARGET_GAP - gapNow) + 'px';
+      headingBlock.style.transform = 'translateY(' + shift + ')';
+      if (innerBlockEl) innerBlockEl.style.transform = 'translateY(' + shift + ')';
     }
 
     var TARGET_GAP = 32; // px -- the reference spacing, held constant at every viewport width
@@ -435,26 +447,21 @@
   })();
 
   // Re-implementation of Oak's "Gallery Scroll Animation / What's Cooking" (action list
-  // "a-19"): the photo block rises up from below; the four side images give a brief
-  // rotation wiggle to hint there are several stacked photos; then they fan out sideways
-  // to their final spread. The center photo (._3) never moves -- it's the anchor, Oak's
-  // own data never targets it either. gallery-icon was the CLASSIC sticker, already
-  // removed from the markup, so it's guarded off here rather than deleted from the data.
+  // "a-19"): the photos rise up from below as ONE shared cluster, give a brief rotation
+  // wiggle to hint there are several stacked photos, then disperse sideways to their final
+  // spread. With a second row added (desktop/tablet only, 10 photos total), row 2 is pulled
+  // up to sit exactly on top of row 1 for the whole cluster/rise/wiggle phase -- one single
+  // pile, not two -- and only peels off down to its own row during the disperse phase.
   (function () {
     var block = document.querySelector('.gallery-scroll-block');
     if (!block) return;
     var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    // querySelectorAll, not querySelector: there are now two "rows" of 5 images (an
-    // optional second .gallery-image-block._2nd, desktop/tablet only), and both should
-    // play the exact same animation in lockstep -- same reasoning as the About section's
-    // two heading blocks earlier in this file.
-    var imgBlocks = document.querySelectorAll('.gallery-image-block');
-    var img1s = document.querySelectorAll('.gallery-image._1');
-    var img2s = document.querySelectorAll('.gallery-image._2');
-    var img4s = document.querySelectorAll('.gallery-image._4');
-    var img5s = document.querySelectorAll('.gallery-image._5');
+    var row1 = document.querySelector('.gallery-image-block:not(._2nd)');
+    var row2 = document.querySelector('.gallery-image-block._2nd');
     var icon = document.querySelector('.gallery-icon');
+
+    function imgsIn(row, cls) { return row ? row.querySelectorAll('.gallery-image.' + cls) : []; }
 
     function setAll(list, transform) {
       for (var i = 0; i < list.length; i++) list[i].style.transform = transform;
@@ -467,8 +474,10 @@
     // would fight that layout instead of animating it. Same rule, reproduced here.
     function isTiny() { return window.matchMedia('(max-width: 479px)').matches; }
     function clearInline() {
-      setAll(imgBlocks, ''); setAll(img1s, ''); setAll(img2s, ''); setAll(img4s, ''); setAll(img5s, '');
-      if (icon) icon.style.transform = '';
+      [row1, row2, icon].forEach(function (el) { if (el) el.style.transform = ''; });
+      ['_1', '_2', '_4', '_5'].forEach(function (cls) {
+        setAll(imgsIn(row1, cls), ''); setAll(imgsIn(row2, cls), '');
+      });
     }
 
     function interp(kfs, progress) {
@@ -495,8 +504,20 @@
       img4y: [[0, 0], [35, 0], [65, -10]],
       img4r: [[0, 0], [35, 3], [65, 0]],
       img5x: [[0, 0], [35, 0], [65, 214]],
-      img5r: [[0, 0], [35, 6], [65, 0]]
+      img5r: [[0, 0], [35, 6], [65, 0]],
+      // 100 = row 2 still pulled all the way up onto row 1 (one shared pile); 0 = settled
+      // back at its own natural row position. Follows the same 35-65 disperse window as
+      // the per-image x/y spread above, so the pile breaks apart into two rows at the same
+      // moment the individual photos fan out sideways.
+      row2Pull: [[0, 100], [35, 100], [65, 0]]
     };
+
+    // offsetTop ignores transforms (layout-only), so this reads row2's natural, untransformed
+    // distance below row1 -- exactly how far to pull it up to coincide with row1's cluster.
+    var row2GapPx = 0;
+    function measureGap() {
+      if (row1 && row2) row2GapPx = row2.offsetTop - row1.offsetTop;
+    }
 
     function targetProgress() {
       var rect = block.getBoundingClientRect();
@@ -504,15 +525,33 @@
       return range > 0 ? Math.min(Math.max(-rect.top / range, 0), 1) * 100 : 100;
     }
 
+    function place(row, cls, xTrack, yTrack, rTrack, progress) {
+      var els = imgsIn(row, cls);
+      if (!els.length) return;
+      var x = interp(xTrack, progress);
+      var y = yTrack ? interp(yTrack, progress) : 0;
+      var r = interp(rTrack, progress);
+      setAll(els, 'translate(' + x + '%, ' + y + '%) rotate(' + r + 'deg)');
+    }
+
     function render(progress) {
       if (isTiny()) { clearInline(); return; }
-      setAll(imgBlocks, 'translateY(' + interp(track.blockY, progress) + 'vh)');
+      var blockYv = interp(track.blockY, progress) + 'vh';
+      if (row1) row1.style.transform = 'translateY(' + blockYv + ')';
+      if (row2) {
+        var pull = interp(track.row2Pull, progress) / 100 * row2GapPx;
+        row2.style.transform = 'translateY(' + blockYv + ') translateY(' + (-pull) + 'px)';
+      }
       if (icon) icon.style.transform = 'translateY(' + interp(track.iconY, progress) + 'vh)';
-      setAll(img1s, 'translate(' + interp(track.img1x, progress) + '%) rotate(' + interp(track.img1r, progress) + 'deg)');
-      setAll(img2s, 'translate(' + interp(track.img2x, progress) + '%, ' + interp(track.img2y, progress) + '%) rotate(' + interp(track.img2r, progress) + 'deg)');
-      setAll(img4s, 'translate(' + interp(track.img4x, progress) + '%, ' + interp(track.img4y, progress) + '%) rotate(' + interp(track.img4r, progress) + 'deg)');
-      setAll(img5s, 'translate(' + interp(track.img5x, progress) + '%) rotate(' + interp(track.img5r, progress) + 'deg)');
+      [row1, row2].forEach(function (row) {
+        place(row, '_1', track.img1x, null, track.img1r, progress);
+        place(row, '_2', track.img2x, track.img2y, track.img2r, progress);
+        place(row, '_4', track.img4x, track.img4y, track.img4r, progress);
+        place(row, '_5', track.img5x, null, track.img5r, progress);
+      });
     }
+
+    measureGap();
 
     if (reduceMotion) { render(100); return; }
 
@@ -524,7 +563,7 @@
       render(shown);
       raf = (Math.abs(target - shown) > 0.001) ? requestAnimationFrame(loop) : null;
     }
-    function kick() { if (raf === null) raf = requestAnimationFrame(loop); }
+    function kick() { measureGap(); if (raf === null) raf = requestAnimationFrame(loop); }
     window.addEventListener('scroll', kick, { passive: true });
     window.addEventListener('resize', kick);
     kick();
