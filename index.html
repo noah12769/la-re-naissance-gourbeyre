@@ -21,10 +21,13 @@
 }
 .w-webflow-badge { display: none !important; }
 .hero-inner-block, .hero-heading-block, .hero-heading { opacity: 1 !important; }
-.hero-inner-block, .hero-heading { transform: none !important; }
-/* .hero-heading-block is deliberately left out of the transform reset above: the hero-gap
-   script (bottom of body) sets its own translateY there to hold a constant gap to the
-   orange block above, and needs to actually take effect. */
+.hero-heading { transform: none !important; }
+/* .hero-heading-block and .hero-inner-block are deliberately left out of the transform
+   reset above: the hero-gap script (bottom of body) sets its own translateY on both to
+   hold a constant gap to the orange block above, and needs it to actually take effect.
+   (Missing .hero-inner-block here once meant its half of that shift was silently blocked
+   by this !important, breaking the "move both together" fix and eating into the gap below
+   the title by however much the title had shifted.) */
 .about-image { width: 240px !important; height: 308px !important; }
 .reservation-text { text-align: center !important; align-self: center !important; }
 .reservation-block { justify-content: flex-start !important; }
@@ -199,8 +202,17 @@
     var innerBlockEl = document.querySelector('.hero-inner-block');
     if (!heading || !box || !orange) return;
 
+    var headingBlock = document.querySelector('.hero-heading-block');
+
     function fit() {
+      // Reset BEFORE measuring anything, not partway through: fit() runs more than once
+      // (once synchronously, again once webfonts finish loading), and leaving a previous
+      // run's translateY correction in place while this run's width-fit / overlap checks
+      // are still reading positions would measure an already-shifted box -- corrupting the
+      // math and compounding across runs.
       heading.style.fontSize = '';
+      headingBlock.style.transform = 'none';
+      if (innerBlockEl) innerBlockEl.style.transform = 'none';
       var available = box.clientWidth * 0.94;
       var natural = heading.scrollWidth;
       if (natural > available) {
@@ -208,15 +220,16 @@
         heading.style.fontSize = Math.floor(current * (available / natural)) + 'px';
       }
       // Width alone isn't always enough: at some desktop widths the (now width-fitted)
-      // title is still tall enough to poke into the orange block above it, or leave no
-      // room for the tagline/buttons below it. Nudge it down further in that case, but
-      // never below a legible floor -- a bit of tightness at an extreme size beats
-      // crushing the title unreadable trying to chase it.
+      // title is still tall enough to poke into the orange block above it, or touch the
+      // tagline/buttons below it. Only shrink as far as guaranteeing a minimal 1rem
+      // clearance below (MIN_GAP_BELOW) -- the title should stay as large as Oak's own
+      // sizing allows, this is just enough to stop it running into the text, not a target
+      // gap to hit exactly. Never below a legible floor either.
       var guard = 12;
       var floor = 56;
       while (guard-- > 0) {
         var overlapAbove = heading.getBoundingClientRect().top < orange.getBoundingClientRect().bottom - 1;
-        var overlapBelow = innerBlockEl && innerBlockEl.getBoundingClientRect().top < heading.getBoundingClientRect().bottom + TARGET_GAP - 1;
+        var overlapBelow = innerBlockEl && innerBlockEl.getBoundingClientRect().top < heading.getBoundingClientRect().bottom + MIN_GAP_BELOW - 1;
         if (!overlapAbove && !overlapBelow) break;
         var size = parseFloat(getComputedStyle(heading).fontSize);
         if (size <= floor) break;
@@ -240,16 +253,14 @@
       // rigid unit instead -- their own gap to each other (Oak's own flex gap) stays
       // exactly as laid out, only the pair's position relative to the fixed orange block
       // above changes.
-      var headingBlock = document.querySelector('.hero-heading-block');
-      headingBlock.style.transform = 'none';
-      if (innerBlockEl) innerBlockEl.style.transform = 'none';
       var gapNow = heading.getBoundingClientRect().top - orange.getBoundingClientRect().bottom;
       var shift = (TARGET_GAP - gapNow) + 'px';
       headingBlock.style.transform = 'translateY(' + shift + ')';
       if (innerBlockEl) innerBlockEl.style.transform = 'translateY(' + shift + ')';
     }
 
-    var TARGET_GAP = 32; // px -- the reference spacing, held constant at every viewport width
+    var TARGET_GAP = 32; // px -- gap above the title (against the orange block), held constant
+    var MIN_GAP_BELOW = 16; // px (~1rem) -- just enough clearance below the title, not pinned
     fit();
     window.addEventListener('resize', fit);
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
