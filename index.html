@@ -49,6 +49,22 @@
 @media screen and (max-height: 700px) {
   .hero-inner-block { gap: 20px !important; }
 }
+/* The classic mobile "100vh" bug: on a real phone browser, 100vh is sized for the LARGEST
+   possible viewport (address bar hidden), not what's actually visible on load (address bar
+   showing) -- so anything pinned to the bottom of a 100vh section renders below the fold
+   until the user scrolls. Headless testing never catches this since it doesn't simulate
+   browser chrome at all. 100dvh ("dynamic viewport height") tracks the real, currently-
+   visible height instead. Declared after the 100vh fallback so older browsers that don't
+   know the unit just keep using vh (invalid values are ignored, not inherited over). Same
+   fix applied to the tall scroll-distance wrappers so the scroll math driving our custom
+   animations (which reads the real window.innerHeight) stays consistent with what the
+   section's own CSS height actually is, instead of the two drifting apart on a phone whose
+   toolbar shows/hides while scrolling. */
+.hero-section, .about-section, .dish-section, .gallery-section { height: 100dvh; }
+.about-scroll-block { height: 250dvh; }
+.dish-scroll-block { height: 200dvh; }
+.reservation-scroll-block { height: 250dvh; }
+.gallery-scroll-block { height: 300dvh; }
 .reservation-text { text-align: center !important; align-self: center !important; }
 .reservation-block { justify-content: flex-start !important; }
 .reservation-item-block { margin-top: 140px; padding-bottom: 140px; }
@@ -106,9 +122,11 @@
 /* Oak's own mobile value here (bottom:-19%) was tuned for a much smaller original
    padding-bottom -- with our 140px it lands the badge well past the bottom of the
    viewport, off the banner entirely. Same fix as above, scaled down for the much
-   shorter (104px) mobile banner. */
+   shorter (104px) mobile banner. Sitting centered on the banner (like the desktop rule
+   above) worked with "CHAQUE JOUR" but "CHAQUE SEMAINE" is longer and now runs under it --
+   moved below the banner instead, centered in the padding-bottom space underneath. */
 @media screen and (max-width: 479px) {
-  .reservation-icon { bottom: 147px !important; right: 20px !important; }
+  .reservation-icon { bottom: 25px !important; right: 20px !important; }
 }
 /* About section: real keyframe values extracted from Oak's own compiled interaction
    data (assets/js webflow.schunk*.js, action list "a-8", "About Scroll Animation").
@@ -421,12 +439,35 @@
   (function () {
     var block = document.querySelector('.dish-scroll-block');
     var wrapper = document.querySelector('.dish-collection-list-wrapper');
+    var viewport = document.querySelector('.dish-container');
     var list = document.querySelector('.dish-collection-list');
-    if (!block || !wrapper || !list) return;
+    if (!block || !wrapper || !viewport || !list) return;
     var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var firstCard = list.children[0];
+    var lastCard = list.children[list.children.length - 1];
 
-    function maxShift() {
-      return Math.max(0, list.scrollWidth - wrapper.clientWidth);
+    // At rest (progress 0) the first card sat flush against the viewport's left edge, and
+    // fully scrolled (progress 45) the last card sat flush against the right edge -- neither
+    // was centered in view like the cards in between end up being mid-scroll.
+    //
+    // .dish-collection-list-wrapper is width:auto inside a centered flex parent -- its own
+    // rendered position isn't simply "flush left of the viewport", so computing a padding
+    // value assuming that (first attempt) landed wrong. Measuring the two endpoints directly
+    // sidesteps needing to understand the wrapper's own offset at all: reset transform,
+    // measure where each edge card's center naturally sits vs. the viewport's center, and
+    // that difference *is* the translateX that centers it. Interpolating between those two
+    // measured endpoints keeps every position (edge cards included) centered the same way
+    // the in-between cards already look mid-scroll.
+    var leadShift = 0, trailShift = 0;
+    function measureShifts() {
+      var savedTransform = list.style.transform;
+      list.style.transform = 'translateX(0px)';
+      var vpCenter = viewport.getBoundingClientRect().left + viewport.clientWidth / 2;
+      var firstRect = firstCard.getBoundingClientRect();
+      var lastRect = lastCard.getBoundingClientRect();
+      leadShift = vpCenter - (firstRect.left + firstRect.width / 2);
+      trailShift = vpCenter - (lastRect.left + lastRect.width / 2);
+      list.style.transform = savedTransform;
     }
 
     function targetProgress() {
@@ -437,9 +478,10 @@
 
     function render(progress) {
       var p = Math.min(progress, 45) / 45; // Oak's own keyframe ends at 45%
-      list.style.transform = 'translateX(-' + (p * maxShift()) + 'px)';
+      list.style.transform = 'translateX(' + (leadShift + p * (trailShift - leadShift)) + 'px)';
     }
 
+    measureShifts();
     if (reduceMotion) { render(targetProgress()); return; }
 
     var shown = 0, raf = null;
@@ -450,7 +492,7 @@
       render(shown);
       raf = (Math.abs(target - shown) > 0.001) ? requestAnimationFrame(loop) : null;
     }
-    function kick() { if (raf === null) raf = requestAnimationFrame(loop); }
+    function kick() { measureShifts(); if (raf === null) raf = requestAnimationFrame(loop); }
     window.addEventListener('scroll', kick, { passive: true });
     window.addEventListener('resize', kick);
     kick();
