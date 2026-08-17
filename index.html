@@ -123,6 +123,17 @@
    browser's default heading margin zeroed out so the (already-tuned) animation spacing
    doesn't shift. */
 .about-text-1 { margin: 0; }
+/* .about-text-2 ("COMME LE PHÉNIX...") was pinned bottom:0%/left:0% via position:absolute,
+   completely independent of the flex layout (3 space-between-distributed items: the two
+   headings + the image block) that everything else in .about-block uses. On a short-height
+   screen (~640px, common on Android phones -- our testing had only ever covered iPhone-ish
+   heights), the flex content is squeezed into less room and its second heading ends up
+   overlapping this absolutely-positioned text, since neither knows about the other. Putting
+   it back into normal flex flow (as the 4th item, which is already its position in the DOM)
+   lets space-between keep every element clear of its neighbours automatically, at any
+   viewport height, instead of computing a fixed pixel position that only works above some
+   untested minimum height. */
+.about-text-2 { position: static !important; align-self: flex-start; }
 /* This link had no class at all -- fell back to the browser's default blue link color
    (only visible as a focus/tap highlight since the badge itself is an SVG image, but
    still worth killing outright). */
