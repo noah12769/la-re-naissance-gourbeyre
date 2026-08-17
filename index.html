@@ -28,7 +28,27 @@
    (Missing .hero-inner-block here once meant its half of that shift was silently blocked
    by this !important, breaking the "move both together" fix and eating into the gap below
    the title by however much the title had shifted.) */
-.about-image { width: 240px !important; height: 308px !important; }
+/* Fixed px was exactly the kind of value that broke on a short viewport: at 3 images
+   staying 308px tall no matter what, a 640px-tall screen (common Android height) didn't
+   have enough room left in the flex column for the two headings + tagline sharing the
+   same space, and the second heading got flex-shrunk down to nothing. clamp()+vh lets the
+   images themselves shrink first on a short screen, before anything else runs out of room. */
+.about-image { width: auto !important; height: clamp(160px, 30vh, 308px) !important; aspect-ratio: 840 / 1080; }
+/* clamp() sets the preferred size, but flex-shrink can still compress a flex item smaller
+   than that if the row is tight -- and by default it was hitting the headings (text
+   collapsing to nothing) rather than the images (which can absorb being smaller without
+   "disappearing" the way text does). Headings protected from shrinking away; the image
+   block is left free to be the one that gives on a short screen. */
+.about-heading-block { flex-shrink: 0; }
+/* Same short-viewport-height problem as the About images, on the hero this time: the
+   tagline+buttons stack (.hero-inner-block, 36px gaps at mobile) was tall enough that on a
+   ~640px-tall screen its last line ran past the bottom of the 100vh hero -- not clipped
+   (overflow:visible), just below the fold, looking cut off. Tightening the gap on short
+   screens buys back the room instead of fixing a number that only worked above an untested
+   minimum height. */
+@media screen and (max-height: 700px) {
+  .hero-inner-block { gap: 20px !important; }
+}
 .reservation-text { text-align: center !important; align-self: center !important; }
 .reservation-block { justify-content: flex-start !important; }
 .reservation-item-block { margin-top: 140px; padding-bottom: 140px; }
