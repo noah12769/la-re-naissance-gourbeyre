@@ -1,6 +1,20 @@
 <!DOCTYPE html>
 <!-- This site was created in Webflow. https://webflow.com --><!-- Last Published: Fri Jan 30 2026 02:07:48 GMT+0000 (Coordinated Universal Time) --><!--$-->
-<html lang="fr"><!--$--><head><meta charset="utf-8"/><!--$--><link crossorigin="anonymous" href="https://cdn.prod.website-files.com" rel="preconnect"/><!--/$--><title>La Re-Naissance — Restaurant à Gourbeyre</title><meta content="La Re-Naissance, restaurant à Gourbeyre (Guadeloupe). Une carte qui change chaque semaine, au gré du marché." name="description"/><link href="https://la-re-naissance-gourbeyre.vercel.app/" rel="canonical"/><meta content="La Re-Naissance — Restaurant à Gourbeyre" property="og:title"/><meta content="La Re-Naissance, restaurant à Gourbeyre (Guadeloupe). Une carte qui change chaque semaine, au gré du marché." property="og:description"/><meta content="https://la-re-naissance-gourbeyre.vercel.app/assets/images/og-image.png" property="og:image"/><meta content="1200" property="og:image:width"/><meta content="630" property="og:image:height"/><meta content="https://la-re-naissance-gourbeyre.vercel.app/" property="og:url"/><meta content="fr_FR" property="og:locale"/><meta content="La Re-Naissance — Restaurant à Gourbeyre" name="twitter:title"/><meta content="La Re-Naissance, restaurant à Gourbeyre (Guadeloupe). Une carte qui change chaque semaine, au gré du marché." name="twitter:description"/><meta content="https://la-re-naissance-gourbeyre.vercel.app/assets/images/og-image.png" name="twitter:image"/><meta content="website" property="og:type"/><meta content="summary_large_image" name="twitter:card"/><meta content="width=device-width, initial-scale=1" name="viewport"/><script type="application/ld+json">{"@context":"https://schema.org","@type":"Restaurant","name":"La Re-Naissance","image":"https://la-re-naissance-gourbeyre.vercel.app/assets/images/og-image.png","servesCuisine":"Française","priceRange":"€€","telephone":"+590690902420","address":{"@type":"PostalAddress","streetAddress":"Chemin de la Plantation","addressLocality":"Gourbeyre","postalCode":"97113","addressRegion":"Guadeloupe","addressCountry":"GP"},"openingHoursSpecification":[{"@type":"OpeningHoursSpecification","dayOfWeek":["Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"],"opens":"12:00","closes":"14:45"},{"@type":"OpeningHoursSpecification","dayOfWeek":["Friday","Saturday"],"opens":"20:00","closes":"22:30"}],"sameAs":["https://www.instagram.com/restaurant.la_re_naissance/"]}</script><!--$--><link href="assets/css/the-oak-restaurant.webflow.shared.3dd8aec1d.css" rel="stylesheet" type="text/css"/><style>
+<html lang="fr"><!--$--><head><meta charset="utf-8"/><!--$--><link crossorigin="anonymous" href="https://cdn.prod.website-files.com" rel="preconnect"/><!--/$--><title>La Re-Naissance — Restaurant à Gourbeyre</title><meta content="La Re-Naissance, restaurant à Gourbeyre (Guadeloupe). Une carte qui change chaque semaine, au gré du marché." name="description"/><link href="https://la-re-naissance-gourbeyre.vercel.app/" rel="canonical"/><meta content="La Re-Naissance — Restaurant à Gourbeyre" property="og:title"/><meta content="La Re-Naissance, restaurant à Gourbeyre (Guadeloupe). Une carte qui change chaque semaine, au gré du marché." property="og:description"/><meta content="https://la-re-naissance-gourbeyre.vercel.app/assets/images/og-image.png" property="og:image"/><meta content="1200" property="og:image:width"/><meta content="630" property="og:image:height"/><meta content="https://la-re-naissance-gourbeyre.vercel.app/" property="og:url"/><meta content="fr_FR" property="og:locale"/><meta content="La Re-Naissance — Restaurant à Gourbeyre" name="twitter:title"/><meta content="La Re-Naissance, restaurant à Gourbeyre (Guadeloupe). Une carte qui change chaque semaine, au gré du marché." name="twitter:description"/><meta content="https://la-re-naissance-gourbeyre.vercel.app/assets/images/og-image.png" name="twitter:image"/><meta content="website" property="og:type"/><meta content="summary_large_image" name="twitter:card"/><meta content="width=device-width, initial-scale=1" name="viewport"/><script type="application/ld+json">{"@context":"https://schema.org","@type":"Restaurant","name":"La Re-Naissance","image":"https://la-re-naissance-gourbeyre.vercel.app/assets/images/og-image.png","servesCuisine":"Française","priceRange":"€€","telephone":"+590690902420","address":{"@type":"PostalAddress","streetAddress":"Chemin de la Plantation","addressLocality":"Gourbeyre","postalCode":"97113","addressRegion":"Guadeloupe","addressCountry":"GP"},"openingHoursSpecification":[{"@type":"OpeningHoursSpecification","dayOfWeek":["Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"],"opens":"12:00","closes":"14:45"},{"@type":"OpeningHoursSpecification","dayOfWeek":["Friday","Saturday"],"opens":"20:00","closes":"22:30"}],"sameAs":["https://www.instagram.com/restaurant.la_re_naissance/"]}</script><!--$--><link href="assets/css/the-oak-restaurant.webflow.shared.3dd8aec1d.css" rel="stylesheet" type="text/css"/><script>
+// 100dvh alone wasn't enough on a real device that still cut off content -- CSS media
+// queries (like the max-height:700px one this used to gate on) traditionally evaluate
+// against the browser's "large" viewport metric, not the actually-visible one, so a short
+// real screen with its address bar showing could still slip past that check even though
+// dvh itself is supported. Measuring window.innerHeight directly in JS and exposing it as
+// --vh is the one thing that's guaranteed to match what's really visible on any device,
+// any browser. Runs before the stylesheet below so --vh is set before first paint.
+(function () {
+  function setVH() { document.documentElement.style.setProperty('--vh', window.innerHeight * 0.01 + 'px'); }
+  setVH();
+  window.addEventListener('resize', setVH);
+  window.addEventListener('orientationchange', setVH);
+})();
+</script><style>
 :root {
   --base-color--base: #F7EFE2;
   --primary-color--p-500: #17120C;
@@ -33,7 +47,7 @@
    have enough room left in the flex column for the two headings + tagline sharing the
    same space, and the second heading got flex-shrunk down to nothing. clamp()+vh lets the
    images themselves shrink first on a short screen, before anything else runs out of room. */
-.about-image { width: auto !important; height: clamp(160px, 30vh, 308px) !important; aspect-ratio: 840 / 1080; }
+.about-image { width: auto !important; height: clamp(160px, calc(var(--vh, 1vh) * 30), 308px) !important; aspect-ratio: 840 / 1080; }
 /* clamp() sets the preferred size, but flex-shrink can still compress a flex item smaller
    than that if the row is tight -- and by default it was hitting the headings (text
    collapsing to nothing) rather than the images (which can absorb being smaller without
@@ -46,28 +60,39 @@
    (overflow:visible), just below the fold, looking cut off. Tightening the gap on short
    screens buys back the room instead of fixing a number that only worked above an untested
    minimum height. */
-@media screen and (max-height: 700px) {
-  .hero-inner-block { gap: 20px !important; }
-}
-/* The classic mobile "100vh" bug: on a real phone browser, 100vh is sized for the LARGEST
-   possible viewport (address bar hidden), not what's actually visible on load (address bar
-   showing) -- so anything pinned to the bottom of a 100vh section renders below the fold
-   until the user scrolls. Headless testing never catches this since it doesn't simulate
-   browser chrome at all. 100dvh ("dynamic viewport height") tracks the real, currently-
-   visible height instead. Declared after the 100vh fallback so older browsers that don't
-   know the unit just keep using vh (invalid values are ignored, not inherited over). Same
-   fix applied to the tall scroll-distance wrappers so the scroll math driving our custom
-   animations (which reads the real window.innerHeight) stays consistent with what the
-   section's own CSS height actually is, instead of the two drifting apart on a phone whose
-   toolbar shows/hides while scrolling. */
-.hero-section, .about-section, .dish-section, .gallery-section { height: 100dvh; }
-.about-scroll-block { height: 250dvh; }
-.dish-scroll-block { height: 200dvh; }
-.reservation-scroll-block { height: 250dvh; }
-.gallery-scroll-block { height: 300dvh; }
+/* The classic mobile "100vh" bug: on a real phone browser, 100vh/100dvh alike can be sized
+   for a viewport metric that doesn't match what's actually visible on load (address bar
+   showing) -- so anything pinned to the bottom of a 100vh section renders below the fold.
+   Headless testing never catches this since it doesn't simulate browser chrome at all, and
+   even 100dvh + a max-height media query wasn't enough on a real short device: media
+   queries traditionally evaluate against the "large" viewport metric too, so the query can
+   fail to fire even though the real visible height is short. calc(var(--vh)*N) (--vh set in
+   JS, head of <head>, from the real window.innerHeight) is the one thing guaranteed to match
+   what's really visible, on any device or browser -- 100vh kept first as a fallback for the
+   (very rare) case JS is disabled. Same fix applied to the tall scroll-distance wrappers so
+   the scroll math driving our custom animations stays consistent with the section's own
+   real height instead of the two drifting apart on a phone whose toolbar shows/hides while
+   scrolling. */
+.hero-section, .about-section, .dish-section, .gallery-section { height: calc(var(--vh, 1vh) * 100); }
+.about-scroll-block { height: calc(var(--vh, 1vh) * 250); }
+.dish-scroll-block { height: calc(var(--vh, 1vh) * 200); }
+.reservation-scroll-block { height: calc(var(--vh, 1vh) * 250); }
+.gallery-scroll-block { height: calc(var(--vh, 1vh) * 300); }
+/* Same reasoning as above: a plain max-height media query can miss the real short-viewport
+   case on a real phone, so this gate now runs in JS instead (see the hero-fit script further
+   down), which sets this class directly off the measured window.innerHeight. */
+.hero-inner-block.js-short-viewport { gap: 20px !important; }
 .reservation-text { text-align: center !important; align-self: center !important; }
 .reservation-block { justify-content: flex-start !important; }
 .reservation-item-block { margin-top: 140px; padding-bottom: 140px; }
+/* On a real short mobile screen the reservation section's pinned/sticky content (text +
+   140px gap + 3 badges + 140px gap) genuinely doesn't fit in one screen -- the user could
+   only see the paragraph and a sliver of the first badge before running out of pinned
+   scroll room. Halved again specifically for mobile to free up real room; the badge's own
+   position below is recomputed to match. */
+@media screen and (max-width: 767px) {
+  .reservation-item-block { margin-top: 70px; padding-bottom: 70px; }
+}
 /* Dish section: Oak's .dish-block uses justify-content:space-between over just 2 children
    (heading, image row), which dumps 100% of the slack into a single gap above the images
    and pins the row toward the bottom -- not centered. Centering the pair with a fixed gap
@@ -126,7 +151,7 @@
    above) worked with "CHAQUE JOUR" but "CHAQUE SEMAINE" is longer and now runs under it --
    moved below the banner instead, centered in the padding-bottom space underneath. */
 @media screen and (max-width: 479px) {
-  .reservation-icon { bottom: 25px !important; right: 20px !important; }
+  .reservation-icon { bottom: 10px !important; right: 20px !important; }
 }
 /* About section: real keyframe values extracted from Oak's own compiled interaction
    data (assets/js webflow.schunk*.js, action list "a-8", "About Scroll Animation").
@@ -146,6 +171,11 @@
    section ends right after the last line, not a viewport later. */
 .footer-block { justify-content: flex-start !important; gap: 64px; }
 .footer-phone-row { display: flex; justify-content: space-between; align-items: center; width: 100%; flex-wrap: wrap; gap: 24px; }
+/* space-between with 3 items wrapping to one-per-line on mobile left-aligns each number
+   (space-between on a single-item line just pins it to the start) instead of centering it. */
+@media screen and (max-width: 767px) {
+  .footer-phone-row { justify-content: center; text-align: center; }
+}
 .footer-phone-link { text-decoration: none; }
 .footer-phone-link:hover { color: var(--accent-color--a-500); }
 .footer-map-frame { width: 100%; height: 320px; border-radius: 3px; overflow: hidden; }
@@ -280,6 +310,11 @@
     var headingBlock = document.querySelector('.hero-heading-block');
 
     function fit() {
+      // CSS max-height media queries can miss a real short device (they evaluate against
+      // the browser's "large" viewport metric, not necessarily what's actually visible) --
+      // toggling this class off the real measured height is the reliable version of the
+      // same idea.
+      if (innerBlockEl) innerBlockEl.classList.toggle('js-short-viewport', window.innerHeight < 700);
       // Reset BEFORE measuring anything, not partway through: fit() runs more than once
       // (once synchronously, again once webfonts finish loading), and leaving a previous
       // run's translateY correction in place while this run's width-fit / overlap checks
