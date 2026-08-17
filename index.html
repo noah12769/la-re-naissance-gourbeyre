@@ -138,7 +138,14 @@
 /* Mobile menu: Oak's own icon is a hollow 2x2 grid of bordered squares, and its dropdown
    links are rendered as transparent fill + white outline (-webkit-text-stroke). Replaced
    with a classic solid 3-bar hamburger and made the link text a plain solid fill, as asked. */
-.navbar-menu-icon { display: flex !important; flex-direction: column; justify-content: space-between; }
+/* Unscoped, this was always display:flex -- even on desktop, where Oak's own rule (and the
+   icon's real width/height, both only set inside this same breakpoint) hides it. Invisible
+   there, but still a 0-width flex child of .navbar-block, which threw off justify-content:
+   space-between's math and pulled "GOURBEYRE · GUADELOUPE" in from the right edge instead
+   of letting it sit flush like the orange block below it. */
+@media screen and (max-width: 991px) {
+  .navbar-menu-icon { display: flex !important; flex-direction: column; justify-content: space-between; }
+}
 .navbar-menu-icon-bar { width: 100%; height: 3px; background-color: var(--base-color--base); flex: none; }
 .navbar-link { color: var(--base-color--base) !important; -webkit-text-stroke-width: 0 !important; }
 /* Oak's own .navbar-block is align-items:flex-start: with the nav links' own line-height
