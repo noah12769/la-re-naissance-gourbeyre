@@ -311,6 +311,17 @@
   .dish-item-image { height: clamp(120px, calc(var(--vh, 1vh) * 36), 340px) !important; }
 }
 .gallery-image-block._2nd { display: none; }
+/* "Steak de lambi" photo shows 3 plates receding diagonally, the real hero plate being
+   the large, fully-in-focus one at the BOTTOM of the frame (the two behind it are smaller/
+   softer, just depth). object-fit:cover's default centering (50% 50%) crops around the
+   image's geometric middle, which sits on the smaller middle plate -- as the card's own
+   crop window changes shape across breakpoints ("triangle" vs "square", i.e. very
+   short+wide on a small phone vs taller+narrower on desktop), that keeps showing more or
+   less of the two background plates while cutting into the bottom edge of the actual hero
+   plate. Biasing the vertical anchor toward the bottom keeps that hero plate's own center
+   inside the crop window at every aspect ratio the card can end up at, instead of the
+   photo's own geometric center. */
+img[alt="Steak de lambi"] { object-position: 50% 78%; }
 /* Gallery ("En cuisine"): Oak's own "a-19" scroll interaction -- and therefore our
    reimplementation of it below -- only runs on the "main"/"medium"/"small" breakpoints
    (>479px). Below that Oak swaps the whole section to a different CSS layout (position:
