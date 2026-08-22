@@ -156,6 +156,21 @@
 .about-section { height: auto !important; min-height: calc(var(--vh, 1vh) * 100) !important; display: flex !important; flex-direction: column !important; }
 .about-container { flex: 1 !important; width: 100% !important; min-height: 0 !important; display: flex !important; flex-direction: column !important; }
 .about-block { flex: 1 !important; min-height: 0 !important; }
+/* Mobile only (<=767px, the same breakpoint where Oak's own .about-block switches from
+   space-between to justify-content:center+align-items:center): stretching .about-container/
+   .about-block to fill .about-section's full flex:1 height, combined with that CENTERING,
+   means any leftover room (screen taller than the actual content) gets split in half and
+   added as extra margin ABOVE the first heading AND BELOW the tagline -- on top of, and
+   invisible from, .about-section's own explicit padding-top/bottom. Reported as too much
+   space above/below the text specifically -- confirmed measured: 152px total to the first
+   heading on a 926px-tall phone, only 40px of which was the section's own padding, the
+   other 112px was this centering offset. Desktop/tablet keep the stretch (that's what gives
+   Oak's own space-between something to spread across, the whole point of the flex:1 chain
+   above) -- mobile's block just sizes to its real content instead, so the section's own
+   padding is the only thing left governing the top/bottom gap. */
+@media screen and (max-width: 767px) {
+  .about-container, .about-block { flex: none !important; }
+}
 /* REVERTED (explicitly requested back): About's background is meant to fill the whole
    screen and adapt to it, on every breakpoint, mobile included -- confirmed even though
    that's what spreads the heading/images/heading/tagline stack across visible gaps via
@@ -178,7 +193,9 @@
   .about-section { padding-top: 53px !important; padding-bottom: 53px !important; }
 }
 @media screen and (max-width: 479px) {
-  .about-section { padding-top: 80px !important; padding-bottom: 80px !important; }
+  /* Explicitly reported as too much on mobile (this was meant to match the Hero gap at the
+     same breakpoint, but read as excessive here specifically) -- roughly halved. */
+  .about-section { padding-top: 40px !important; padding-bottom: 40px !important; }
 }
 /* Gallery gets the same "grow instead of shrink" treatment as Hero, per explicit request:
    compressing the photos to guarantee everything fits in exactly one screen made them look
@@ -651,16 +668,25 @@
       // the next one runs its own layout-triggering reads in every engine. Recomputing it
       // here too costs nothing and removes any dependency on that ordering.
       document.documentElement.style.setProperty('--vh', window.innerHeight * 0.01 + 'px');
-      // The orange block will hold a real video, so its height needs a hard ceiling relative
-      // to its own WIDTH (16:9, standard video aspect ratio) on top of the existing vh-based
-      // height -- otherwise a tall-but-narrow window (short width, generous vh) could stretch
-      // it into a proportion no real video looks right in. width is measured directly (not
-      // computed from a container max-width CSS var) so this stays correct regardless of the
-      // section's own padding/max-width at any breakpoint. Only ever CAPS the vh-based height
-      // (via max-height, not height) -- on typical wide screens 69vh is already well under
-      // the 16:9 ceiling, so this doesn't change anything there, it only kicks in for the
+      // The orange block will hold a real video, so on DESKTOP its height needs a hard
+      // ceiling relative to its own width (16:9, standard video aspect ratio) on top of the
+      // existing vh-based height -- otherwise a tall-but-narrow window (short width,
+      // generous vh) could stretch it into a proportion no real video looks right in.
+      // Explicitly requested desktop-only, though: below 992px this was capping the image
+      // down well under the space actually available (vh-based height wanting more room
+      // than 16:9-of-width allowed), leaving unused space elsewhere in the section instead
+      // of the image using it -- testing it uncapped there instead, reverts to always-16:9
+      // if that doesn't look right. width is measured directly (not computed from a
+      // container max-width CSS var) so this stays correct regardless of the section's own
+      // padding/max-width at any breakpoint. Only ever CAPS the vh-based height (via
+      // max-height, not height) -- on typical wide screens 69vh is already well under the
+      // 16:9 ceiling, so this doesn't change anything there, it only kicks in for the
       // narrow/tall edge case.
-      orange.style.maxHeight = Math.round(orange.getBoundingClientRect().width * 9 / 16) + 'px';
+      if (window.innerWidth >= 992) {
+        orange.style.maxHeight = Math.round(orange.getBoundingClientRect().width * 9 / 16) + 'px';
+      } else {
+        orange.style.maxHeight = '';
+      }
       // .hero-block's padding-top (further up) reserves flow space matching the image's
       // vh-based CSS height so the section's auto-height total accounts for it -- but that's
       // the UN-capped value. On a narrow-but-tall phone the 16:9 cap above can shrink the
