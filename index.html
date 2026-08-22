@@ -119,6 +119,12 @@
    content, at every breakpoint. Oak's own padding-top/bottom here is a flat 40px at every
    width (only left/right scale via a var) -- overridden to actually scale the way the
    Hero gap does. */
+/* Requested: differentiate this section from Nos créations/Réservation/Galerie, which all
+   share the cream page background by default (Oak never set a background-color here). Reuses
+   the same accent orange already used for Nous rendre visite/the CTA buttons rather than
+   introducing a new color -- About's own text is already the same dark ink used on top of
+   that orange elsewhere (Nous rendre visite), so no color changes needed there. */
+.about-section { background-color: var(--accent-color--a-500); }
 .about-section { padding-top: 40px !important; padding-bottom: 40px !important; }
 @media screen and (max-width: 991px) {
   .about-section { padding-top: 53px !important; padding-bottom: 53px !important; }
