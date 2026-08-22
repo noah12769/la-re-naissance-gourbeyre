@@ -90,6 +90,12 @@
    real height instead of the two drifting apart on a phone whose toolbar shows/hides while
    scrolling. */
 .hero-section, .about-section, .dish-section, .gallery-section { height: calc(var(--vh, 1vh) * 100); }
+/* .navbar-hero (wraps the navbar + hero-section together) was still on Oak's own plain
+   100vh -- the exact metric this whole --vh mechanism exists to replace. It's also the
+   REAL visual clip boundary for the hero (overflow:hidden lives here, not on .hero-section
+   itself, which is overflow:visible), so a stale/drifted height here could crop hero
+   content even after every other 100vh in the file was already switched over. */
+.navbar-hero { height: calc(var(--vh, 1vh) * 100); }
 .about-scroll-block { height: calc(var(--vh, 1vh) * 250); }
 .dish-scroll-block { height: calc(var(--vh, 1vh) * 200); }
 .reservation-scroll-block { height: calc(var(--vh, 1vh) * 250); }
@@ -410,9 +416,35 @@
       // exactly as laid out, only the pair's position relative to the fixed orange block
       // above changes.
       var gapNow = heading.getBoundingClientRect().top - orange.getBoundingClientRect().bottom;
-      var shift = (TARGET_GAP - gapNow) + 'px';
-      headingBlock.style.transform = 'translateY(' + shift + ')';
-      if (innerBlockEl) innerBlockEl.style.transform = 'translateY(' + shift + ')';
+      var shift = TARGET_GAP - gapNow;
+      headingBlock.style.transform = 'translateY(' + shift + 'px)';
+      if (innerBlockEl) innerBlockEl.style.transform = 'translateY(' + shift + 'px)';
+
+      // Holding a constant 32px gap above the title works fine as long as there's enough
+      // room left below for the tagline+buttons -- but on a very short browser window (a
+      // real desktop user shrinking the window, not just a phone), the orange block +
+      // title alone can already eat the whole section height. Nothing above checks whether
+      // the shifted inner-block still fits inside the section: it doesn't overlap the
+      // title, it just runs straight past the section's own bottom edge and vanishes
+      // behind overflow:hidden -- title stays put (it's anchored near the top, right below
+      // the gap), only the tagline/CTAs disappear, which is exactly what happened. Pull the
+      // whole unit back up by however much it overflows; only engages on genuinely short
+      // windows since there's normally plenty of slack below.
+      // The actual visual clip boundary is .navbar-hero (overflow:hidden), one level up --
+      // .hero-section itself is overflow:visible, so measuring against its own box (as a
+      // first pass here did) doesn't match what's really cropped: .hero-section can report
+      // a taller box than what .navbar-hero actually lets through, once .hero-section (a
+      // flex child of .navbar-hero alongside the navbar bar above it) gets flex-shrunk
+      // shorter than its own declared height on a short window.
+      var clipBoundary = document.querySelector('.navbar-hero');
+      if (innerBlockEl && clipBoundary) {
+        var overflow = innerBlockEl.getBoundingClientRect().bottom - clipBoundary.getBoundingClientRect().bottom;
+        if (overflow > 0) {
+          shift -= overflow;
+          headingBlock.style.transform = 'translateY(' + shift + 'px)';
+          innerBlockEl.style.transform = 'translateY(' + shift + 'px)';
+        }
+      }
     }
 
     var TARGET_GAP = 32; // px -- gap above the title (against the orange block), held constant
