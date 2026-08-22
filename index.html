@@ -156,6 +156,17 @@
 .about-section { height: auto !important; min-height: calc(var(--vh, 1vh) * 100) !important; display: flex !important; flex-direction: column !important; }
 .about-container { flex: 1 !important; width: 100% !important; min-height: 0 !important; display: flex !important; flex-direction: column !important; }
 .about-block { flex: 1 !important; min-height: 0 !important; }
+/* Same "min-height:100vh is a floor the phone doesn't need to reach" fix as Hero, but here
+   it read differently: since .about-block is a flex column with Oak's own
+   justify-content:space-between, forcing the section to 100vh didn't leave dead space
+   trailing after the tagline -- it stretched the GAPS BETWEEN the heading/images/heading/
+   tagline stack, since space-between actively spreads its children across whatever height
+   it's given. On a phone where the real content is noticeably shorter than a full screen,
+   that reads as several large, oddly empty gaps between pieces of text/images that should
+   read close together. Mobile now sizes to real content; desktop/tablet unchanged. */
+@media screen and (max-width: 479px) {
+  .about-section { min-height: 0 !important; }
+}
 /* Matches the same gap used between the Hero title and the content below it (see
    .hero-block's padding-top / .hero-section's padding-bottom further up), used as BOTH the
    top and bottom padding here -- explicitly requested to read the same above and below the
@@ -191,6 +202,16 @@
    how tall the section ends up -- percentage heights don't reliably resolve against an
    auto-height ancestor anyway. */
 .navbar-hero, .hero-section { height: auto !important; min-height: calc(var(--vh, 1vh) * 100) !important; }
+/* Reported on real phones: forcing a full 100vh floor when this section's own content
+   (image + title + tagline/CTAs) doesn't naturally need that much room left a large, dead
+   band of plain background below the last button before the section actually ended --
+   the min-height was purely a safety floor (added so content could never be forced to
+   SHRINK below a full screen), not something the design needs an oversized phone screen to
+   actually reach. Desktop/tablet keep the guaranteed-full-screen floor unchanged (not
+   reported as a problem there); mobile now just hugs its real content instead. */
+@media screen and (max-width: 479px) {
+  .navbar-hero, .hero-section { min-height: 0 !important; }
+}
 /* .hero-block itself does NOT also get min-height:100vh: it's nested inside .hero-section's
    own padded content box, so demanding a full extra 100vh for it on top of .hero-section's
    own 100vh floor (plus that section's 50px padding) was asking for 100vh+50px total --
@@ -212,7 +233,7 @@
    image's own height as real flow space (padding-top, matching each breakpoint) fixes the
    auto-height math at the source; the transform in fit() then only needs to fine-tune the
    exact 32px gap, not carry the whole distance. */
-.hero-block { padding-top: calc(var(--vh, 1vh) * 69); }
+.hero-block { padding-top: var(--hero-pad-top, calc(var(--vh, 1vh) * 69)); }
 /* Breathing room below the tagline/CTAs before the section actually ends -- explicitly
    requested to always match .hero-block's own row-gap above the tagline/CTAs (the space
    between the title and the content right after it), at every breakpoint, so the gap reads
@@ -220,12 +241,12 @@
 .hero-section { padding-bottom: 40px !important; }
 @media screen and (max-width: 991px) {
   .hero-image { height: calc(var(--vh, 1vh) * 51) !important; }
-  .hero-block { padding-top: calc(var(--vh, 1vh) * 51); }
+  .hero-block { padding-top: var(--hero-pad-top, calc(var(--vh, 1vh) * 51)); }
   .hero-section { padding-bottom: 53px !important; }
 }
 @media screen and (max-width: 479px) {
   .hero-image { height: calc(var(--vh, 1vh) * 48) !important; }
-  .hero-block { padding-top: calc(var(--vh, 1vh) * 48); }
+  .hero-block { padding-top: var(--hero-pad-top, calc(var(--vh, 1vh) * 48)); }
   .hero-section { padding-bottom: 80px !important; }
 }
 .about-scroll-block { height: calc(var(--vh, 1vh) * 250); }
@@ -304,6 +325,18 @@
    positioning alone still keeps the pin feel, our own scroll-progress JS doesn't depend
    on this element's height anyway. */
 .reservation-section { height: auto !important; min-height: 100vh; overflow-x: hidden !important; overflow-y: visible !important; }
+/* Same fix as Hero/About: on mobile the section's own space-between layout was stretching
+   big gaps between the three banners to fill a forced 100vh floor the actual content
+   doesn't need. Mobile sizes to content; desktop/tablet keep the full-screen floor. */
+@media screen and (max-width: 479px) {
+  .reservation-section { min-height: 0 !important; }
+  /* Same fixed-gap-instead-of-space-between issue found on About's mobile layout: Oak's own
+     mobile CSS switches .reservation-block from justify-content:space-between to flex-start
+     with a large FIXED 110px row-gap -- with the section no longer forced to 100vh, that
+     110px no longer reads as "spread across the screen", it's just a big literal empty band
+     between the intro line and the three cards. Tightened the same way About's was. */
+  .reservation-block { grid-row-gap: 24px !important; }
+}
 /* Desktop-only complaint (real HP laptop widths, e.g. 1425px): the section's horizontal
    padding is driven by --_sizes---section--padding-section, a shared Oak variable that's
    only 60px on desktop -- fine on very wide/ultrawide screens where the 1400px content
@@ -546,8 +579,23 @@
    still active, so mobile users had to scroll through 3 empty screen-heights of "nothing
    moves" before reaching the next section. Un-pin to match: the section just flows normally. */
 @media screen and (max-width: 479px) {
-  .gallery-section { position: static !important; height: auto !important; min-height: 0 !important; overflow: visible !important; }
+  .gallery-section { position: static !important; height: auto !important; min-height: 0 !important; overflow: visible !important; padding-bottom: 40px !important; }
   .gallery-scroll-block { height: auto !important; }
+}
+/* Same scroll-pinning bug as Gallery above, one section later: .visit-section is
+   position:sticky (Oak's base, all widths) so it locks to the top of the viewport the
+   instant it's scrolled into view -- with no gap of its own and Gallery's own mobile
+   padding-bottom now providing the only separation, the two used to read as directly
+   touching/overlapping (the last gallery photo appearing to vanish under the orange
+   section's top edge with zero breathing room). .visit-pause-spacer is a 60vh EMPTY div
+   that exists purely to hold .visit-section pinned in place a little longer before the
+   footer is allowed to scroll over it (see the comment further down) -- a deliberate
+   desktop effect that becomes a large blank gap in normal flow once unpinned here, so it's
+   zeroed out on mobile too: nothing to "pause" once there's no pin holding the section
+   in view against the page's own natural scroll. */
+@media screen and (max-width: 479px) {
+  .visit-section { position: static !important; min-height: 0 !important; }
+  .visit-pause-spacer { height: 0 !important; }
 }
 /* Hero title: forced to one line (never "LA RE-" / "NAISSANCE" split in two) -- actual
    fit-to-width sizing happens in JS below, since Oak's own fixed per-breakpoint px values
@@ -608,6 +656,18 @@
       // the 16:9 ceiling, so this doesn't change anything there, it only kicks in for the
       // narrow/tall edge case.
       orange.style.maxHeight = Math.round(orange.getBoundingClientRect().width * 9 / 16) + 'px';
+      // .hero-block's padding-top (further up) reserves flow space matching the image's
+      // vh-based CSS height so the section's auto-height total accounts for it -- but that's
+      // the UN-capped value. On a narrow-but-tall phone the 16:9 cap above can shrink the
+      // real image well below that vh figure (confirmed: 444px reserved vs a 207px real
+      // image on a 428x926 screen), leaving the difference as pure dead space at the bottom
+      // of the section, since nothing else grows to reclaim it. Feed the real, actually-
+      // rendered height back in via --hero-pad-top so the reserved space always matches what
+      // orange really measures at, capped or not.
+      var realImgH = orange.getBoundingClientRect().height;
+      if (realImgH > 0) {
+        document.documentElement.style.setProperty('--hero-pad-top', Math.round(realImgH) + 'px');
+      }
       // CSS max-height media queries can miss a real short device (they evaluate against
       // the browser's "large" viewport metric, not necessarily what's actually visible) --
       // toggling this class off the real measured height is the reliable version of the
