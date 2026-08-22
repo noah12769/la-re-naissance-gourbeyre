@@ -63,6 +63,15 @@
    same space, and the second heading got flex-shrunk down to nothing. clamp()+vh lets the
    images themselves shrink first on a short screen, before anything else runs out of room. */
 .about-image { width: auto !important; height: var(--about-img-h, clamp(260px, calc(var(--vh, 1vh) * 40), 360px)) !important; aspect-ratio: 840 / 1080; }
+/* Explicitly requested bigger on desktop (real HP screenshots: images read as too small
+   even outside the short-window case below) -- separate, bigger clamp ceiling/multiplier
+   from mobile's tuned 260-360px range, which stays untouched. The >=992px JS cap above now
+   runs unconditionally too, so if this bigger target would push images 2/3 off-screen on a
+   narrower desktop window it gets dynamically pulled back via --about-img-h, same mechanism
+   mobile already relies on. */
+@media screen and (min-width: 992px) {
+  .about-image { height: var(--about-img-h, clamp(300px, calc(var(--vh, 1vh) * 48), 480px)) !important; }
+}
 /* Reported again on a real short DESKTOP window: the section's content (image cluster +
    headings + tagline, spread with justify-content:space-between) legitimately needs more
    than 100vh once everything is at full size, pushing the last line (the tagline) below
@@ -70,8 +79,18 @@
    this case at all (it explicitly only runs under 768px, since on a WIDE short window the
    fan-spread siblings have plenty of horizontal room -- it's vertical room that's short
    here). A smaller image floor specifically on short windows (any width) frees up enough
-   room that the whole group fits without needing to scroll further to reach the tagline. */
-.short-vh .about-image { height: clamp(110px, calc(var(--vh, 1vh) * 20), 220px) !important; }
+   room that the whole group fits without needing to scroll further to reach the tagline.
+   IMPORTANT: routed through var(--about-img-h) same as the base rule above -- as a plain
+   clamp() this selector's higher specificity (.short-vh .about-image) silently overrode the
+   JS-computed safe value on any narrow+short device (e.g. 360x640), and separately, since
+   .short-vh only means "not much vertical room" (any width) and NOT "small device", this
+   same tiny mobile-tuned floor/ceiling was also firing on wide-but-short DESKTOP windows
+   (the client's HP: 706-753px tall, both under the 820px short-vh threshold) -- exactly
+   the case now being reported as "images too small on desktop". Ceiling raised so a short
+   desktop window still gets a reasonably large image instead of the old phone-in-landscape
+   sizing; the JS cap (all widths now) is what keeps a short+NARROW phone safe instead of
+   this rule's own ceiling doing double duty as both the mobile and desktop short-window fix. */
+.short-vh .about-image { height: var(--about-img-h, clamp(150px, calc(var(--vh, 1vh) * 42), 420px)) !important; }
 .short-vh .about-section { padding-top: 10px !important; padding-bottom: 10px !important; }
 /* Old width-keyed short-viewport fix (min-width:768px), from BEFORE .about-section grew a
    real min-height + .short-vh: removed. It was silently winning over the newer, bigger
@@ -294,6 +313,15 @@
    flagged (reservation cards + footer), desktop only -- mobile/tablet padding untouched. */
 @media screen and (min-width: 992px) {
   .reservation-section, .footer-section { padding-left: 100px !important; padding-right: 100px !important; }
+}
+/* Still read as too wide even with the extra section padding above: the three animated
+   banners (.reservation-item, inside .reservation-item-block) stretch to 100% of the
+   container regardless of how big the screen is, so on an ordinary desktop window they
+   fill essentially the entire available width. Capping the block's own width and centering
+   it (instead of letting it stretch) gives the "framed, centered" look asked for, with a
+   real ceiling past which the banners just stop growing on wider screens. */
+@media screen and (min-width: 992px) {
+  .reservation-item-block { max-width: 900px !important; margin-left: auto !important; margin-right: auto !important; }
 }
 .reservation-item { will-change: transform; }
 .reservation-icon { will-change: transform, opacity; }
@@ -801,12 +829,14 @@
     // its actual size), measuring it once and solving backwards gives the largest image1
     // size that keeps images 2/3 fully on-screen, instead of guessing at a fixed cap.
     function capAboutImageSize() {
-      // 991px (not 767): a real iPad-portrait-width test (768px) still showed a small
-      // (~20px) cutoff on one side -- 768 is technically "desktop" by the site's usual
-      // 767px breakpoint, but the fan-spread math that needs correcting here cares about
-      // real available width, not which named breakpoint a width happens to fall into.
-      // Wider than 991 there's always been enough room in every test.
-      if (!img1 || !img2 || !img3 || window.innerWidth > 991) return;
+      // Used to return above 991px ("always enough room" on desktop) -- true back when
+      // desktop images were capped small (360px). Now that desktop images are allowed to
+      // grow much bigger (see .about-image's >=992px override), the same -86%/-14% fan
+      // math that needed correcting on mobile applies just as much on an ordinary desktop
+      // window (1280-1536px-ish, before the 1400px content max-width even engages) -- a
+      // big enough image1 can still push images 2/3 past the edge there too. Runs at every
+      // width now; the math below is itself what decides whether a correction is needed.
+      if (!img1 || !img2 || !img3) return;
       // Always measure from the TRUE CSS-declared (clamp) baseline, not from whatever a
       // previous correction already shrank things to -- solving from an already-corrected
       // size compounded the correction on every call (scroll fires this often) instead of
