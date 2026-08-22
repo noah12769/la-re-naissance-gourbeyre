@@ -406,6 +406,16 @@
       // the next one runs its own layout-triggering reads in every engine. Recomputing it
       // here too costs nothing and removes any dependency on that ordering.
       document.documentElement.style.setProperty('--vh', window.innerHeight * 0.01 + 'px');
+      // The orange block will hold a real video, so its height needs a hard ceiling relative
+      // to its own WIDTH (16:9, standard video aspect ratio) on top of the existing vh-based
+      // height -- otherwise a tall-but-narrow window (short width, generous vh) could stretch
+      // it into a proportion no real video looks right in. width is measured directly (not
+      // computed from a container max-width CSS var) so this stays correct regardless of the
+      // section's own padding/max-width at any breakpoint. Only ever CAPS the vh-based height
+      // (via max-height, not height) -- on typical wide screens 69vh is already well under
+      // the 16:9 ceiling, so this doesn't change anything there, it only kicks in for the
+      // narrow/tall edge case.
+      orange.style.maxHeight = Math.round(orange.getBoundingClientRect().width * 9 / 16) + 'px';
       // CSS max-height media queries can miss a real short device (they evaluate against
       // the browser's "large" viewport metric, not necessarily what's actually visible) --
       // toggling this class off the real measured height is the reliable version of the
