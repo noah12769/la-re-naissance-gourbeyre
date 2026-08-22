@@ -614,6 +614,17 @@ img[alt="Steak de lambi"] { object-position: 50% 78%; }
 @media screen and (max-width: 479px) {
   .gallery-section { position: static !important; height: auto !important; min-height: 0 !important; overflow: visible !important; padding-bottom: 40px !important; }
   .gallery-scroll-block { height: auto !important; }
+  /* Reported: the mobile grid's fixed 150px box (near-square once its ~45% width is figured
+     in) forced a hard cover-crop on these portrait photos, cutting off a large chunk of each
+     one (heads/bodies) rather than showing the photo whole. aspect-ratio here (matching the
+     photos' real ~3:4 portrait shape) lets each box's height follow its width instead of
+     being pinned to a fixed number, so cover only has to trim a sliver instead of half the
+     frame -- object-fit stays cover (from Oak's own base rule) since the ratios now match
+     closely enough that there's nothing meaningful left to crop. */
+  .gallery-image._1, .gallery-image._2, .gallery-image._3, .gallery-image._4, .gallery-image._5 {
+    height: auto !important;
+    aspect-ratio: 3 / 4;
+  }
 }
 /* Same scroll-pinning bug as Gallery above, one section later: .visit-section is
    position:sticky (Oak's base, all widths) so it locks to the top of the viewport the
@@ -1264,10 +1275,18 @@ img[alt="Steak de lambi"] { object-position: 50% 78%; }
     // reference, same reasoning as the dish carousel's centering math elsewhere in this file.
     var gallerySpreadContainer = document.querySelector('.gallery-container');
     var GALLERY_SPREAD = 5.3, GALLERY_ASPECT = 0.75, GALLERY_SAFETY = 0.92, GALLERY_MAX_H = 340;
+    // Reported "spacing between the photos isn't good" on tablet/desktop -- confirmed by
+    // measurement: at 900px wide, adjacent photos' edges landed within 1-13px of each
+    // other (effectively touching), since the formula above only ever solves for "does the
+    // OUTER edge of image 1/5 stay on-screen", nothing in it reserves room for the 4 gaps
+    // BETWEEN images 1-5. Subtracting a fixed pixel budget for those 4 gaps before dividing
+    // by the spread ratio makes the images just small enough to leave real daylight between
+    // them, at every width -- same mechanism, just accounting for one more thing than before.
+    var GALLERY_GAP = 26;
     function capGallerySize() {
       if (isTiny() || !gallerySpreadContainer) return;
       var w = gallerySpreadContainer.clientWidth;
-      var maxHeight = Math.min(GALLERY_MAX_H, (w * GALLERY_SAFETY) / GALLERY_SPREAD / GALLERY_ASPECT);
+      var maxHeight = Math.min(GALLERY_MAX_H, ((w * GALLERY_SAFETY) - 4 * GALLERY_GAP) / GALLERY_SPREAD / GALLERY_ASPECT);
       [row1, row2].forEach(function (row) { if (row) row.style.height = Math.round(maxHeight) + 'px'; });
     }
 
