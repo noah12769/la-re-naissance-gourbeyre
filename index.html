@@ -98,21 +98,24 @@
    compressed toward their floor on real Android screens to force everything into exactly
    one screen -- explicitly reported as still looking too small. Section now fills one
    screen when there's room and extends (scrollable) when the content needs more. */
-/* height:auto with NO min-height: an earlier version of this fix added
-   min-height:100vh (to keep About at least one full screen tall, matching Hero/Gallery) --
-   turned out to make .about-container/.about-block's own height:100% partially resolve
-   again in Chromium once .about-section's used height became "definite enough" via that
-   min-height, which broke the padding-top/padding-bottom symmetry below: measured 40px top
-   vs 236px bottom instead of matching. Confirmed directly (removed min-height as a test,
-   both gaps became exactly 40px/40px, matching). Pure height:auto avoids that: the section
-   is exactly padding + content, nothing more, so the two paddings set below are exactly what
-   renders -- About no longer guarantees filling one full screen the way Hero/Gallery do, but
-   that was never explicitly asked for; the matching top/bottom padding was. .about-block and
-   .about-container are both back to Oak's completely untouched defaults (their own
-   justify-content, the individual align-self:flex-start on the headings/tagline that makes
-   the left/right staggered layout what it is) -- nothing here touches how they lay out their
-   own children, only .about-section's own outer height/padding. */
-.about-section { height: auto !important; }
+/* Back to min-height:100vh -- without it the orange background was only as tall as the
+   content (~1/3 of a normal desktop viewport, per a real screenshot), and on mobile the
+   3-photo cluster's rotate/scale reveal animation didn't have enough vertical room before
+   hitting the section's own overflow:hidden edge, clipping the left/right photos (only the
+   center one stayed fully visible). Explicitly requested: keep the text exactly where it
+   currently sits (the zigzag layout is fine, don't touch it), just extend the background
+   canvas below it to fill close to a full screen.
+   The previous min-height attempt broke the padding-top/bottom symmetry because
+   .about-container/.about-block's own height:100% (Oak's default) partially resolved once
+   .about-section's height became "definite enough" via min-height, and their own
+   justify-content then redistributed the extra room unevenly (40px top vs 236px bottom).
+   Forcing .about-container/.about-block to height:auto here (below) sidesteps that
+   entirely: neither ever tries to fill the taller section, so they just render at their
+   natural size in normal document flow, sitting exactly where they already do -- the extra
+   room from min-height simply becomes blank background after the content, before
+   padding-bottom, instead of being redistributed into the content's own internal gaps. */
+.about-section { height: auto !important; min-height: calc(var(--vh, 1vh) * 100) !important; }
+.about-container, .about-block { height: auto !important; }
 /* Matches the same gap used between the Hero title and the content below it (see
    .hero-block's padding-top / .hero-section's padding-bottom further up), used as BOTH the
    top and bottom padding here -- explicitly requested to read the same above and below the
