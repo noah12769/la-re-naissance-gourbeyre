@@ -135,7 +135,7 @@
    .about-container and .about-block each just flex:1 to fill exactly what's left after
    that, with no percentage-resolution or double-counting involved at any step. */
 .about-section { height: auto !important; min-height: calc(var(--vh, 1vh) * 100) !important; display: flex !important; flex-direction: column !important; }
-.about-container { flex: 1 !important; min-height: 0 !important; display: flex !important; flex-direction: column !important; }
+.about-container { flex: 1 !important; width: 100% !important; min-height: 0 !important; display: flex !important; flex-direction: column !important; }
 .about-block { flex: 1 !important; min-height: 0 !important; }
 /* Matches the same gap used between the Hero title and the content below it (see
    .hero-block's padding-top / .hero-section's padding-bottom further up), used as BOTH the
