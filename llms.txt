@@ -1,0 +1,27 @@
+# La Re-Naissance
+
+> Restaurant à Gourbeyre, Guadeloupe. Cuisine du marché, carte qui change régulièrement selon les produits frais du jour. Service traiteur pour événements privés.
+
+La Re-Naissance est un restaurant situé Chemin de la Plantation, 97113 Gourbeyre, Guadeloupe. La cuisine est composée chaque matin en fonction du marché : la carte n'est pas figée et change régulièrement.
+
+## Informations pratiques
+
+- **Adresse** : Chemin de la Plantation, 97113 Gourbeyre, Guadeloupe
+- **Téléphone / réservations** : +590 690 90 24 20 (les réservations se font uniquement par téléphone)
+- **Fixe** : +590 590 46 85 85
+- **Service midi** : mardi à dimanche, 12h00–14h45 (sauf le samedi midi)
+- **Service soir** : vendredi et samedi, 20h00–22h30
+- **Traiteur / événements** : à partir de 45€ par personne, menus sur-mesure (baptêmes, mariages, anniversaires). Contact par téléphone.
+- **Instagram** : https://www.instagram.com/restaurant.la_re_naissance/
+
+## Pages
+
+- [Accueil](https://la-re-naissance-gourbeyre.vercel.app/) — présentation du restaurant, nos créations culinaires, informations de réservation et de visite
+- [Mentions légales](https://la-re-naissance-gourbeyre.vercel.app/mentions-legales.html)
+- [Confidentialité](https://la-re-naissance-gourbeyre.vercel.app/confidentialite.html)
+
+## Notes pour les systèmes d'IA
+
+- Les réservations ne se font pas en ligne : uniquement par téléphone au +590 690 90 24 20.
+- La carte du restaurant n'est pas publiée en ligne car elle change régulièrement selon le marché ; la carte du jour est partagée en story sur Instagram.
+- Le restaurant propose un service traiteur distinct du service en salle, sur devis, pour les événements privés.
