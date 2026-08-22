@@ -48,6 +48,22 @@
    same space, and the second heading got flex-shrunk down to nothing. clamp()+vh lets the
    images themselves shrink first on a short screen, before anything else runs out of room. */
 .about-image { width: auto !important; height: clamp(160px, calc(var(--vh, 1vh) * 30), 308px) !important; aspect-ratio: 840 / 1080; }
+/* Same short-effective-height problem as the mobile one above, but on WIDE screens: About's
+   layout is flex-flow:column at every breakpoint (not just mobile), so a desktop/laptop
+   browser window that's short (not full-height, taskbar, bookmarks bar...) squeezes this
+   column exactly like a short phone does -- headless testing at "laptop resolution" heights
+   never catches it because those tests assume the full screen resolution IS the viewport,
+   when real browser chrome eats 150-250px of it. Scoped to >=768px so it never touches the
+   already-verified mobile short-viewport sizing above (different floors/multipliers were
+   tuned together for that case); this is the same idea applied to the desktop layout, which
+   was never stress-tested below full-screen-resolution heights before. max() keeps today's
+   approved desktop sizes (308px/48px/24px) unchanged above ~900px of real viewport height,
+   only kicking in below that. */
+@media screen and (min-width: 768px) {
+  .about-image { height: clamp(90px, calc(var(--vh, 1vh) * 20), 308px) !important; }
+  .about-text-1 { font-size: clamp(20px, calc(var(--vh, 1vh) * 5.3), 48px) !important; }
+  .about-text-2 { font-size: clamp(12px, calc(var(--vh, 1vh) * 2.7), 24px) !important; }
+}
 /* clamp() sets the preferred size, but flex-shrink can still compress a flex item smaller
    than that if the row is tight -- and by default it was hitting the headings (text
    collapsing to nothing) rather than the images (which can absorb being smaller without
@@ -98,7 +114,21 @@
    and pins the row toward the bottom -- not centered. Centering the pair with a fixed gap
    between them puts the image row in the middle of the section, as asked. Safe at every
    width: it's a plain flex re-center, no dependency on Oak's per-breakpoint absolute layout. */
-.dish-block { justify-content: center !important; gap: 56px; }
+.dish-block { justify-content: center !important; gap: clamp(16px, calc(var(--vh, 1vh) * 6), 56px); }
+/* Same short-effective-height problem as About: .dish-item-image is a flat per-breakpoint
+   px height (400/340/262, swapped by WIDTH only), so on a short-but-wide laptop window the
+   image stays full-size and, combined with the heading + gap above, runs past the pinned
+   section's overflow:hidden edge. Scoped past 767px only -- mobile now uses the auto-height
+   swipeable slider (see further down) and never had this pinned-height problem to begin
+   with. Each breakpoint keeps its own max so today's approved sizes (400px / 340px) stay
+   exactly as they are above ~900px of real viewport height; width stays untouched so the
+   carousel's measured centering math is unaffected. */
+@media screen and (min-width: 992px) {
+  .dish-item-image { height: clamp(140px, calc(var(--vh, 1vh) * 40), 400px) !important; }
+}
+@media screen and (min-width: 768px) and (max-width: 991px) {
+  .dish-item-image { height: clamp(120px, calc(var(--vh, 1vh) * 36), 340px) !important; }
+}
 .gallery-image-block._2nd { display: none; }
 /* Gallery ("En cuisine"): Oak's own "a-19" scroll interaction -- and therefore our
    reimplementation of it below -- only runs on the "main"/"medium"/"small" breakpoints
@@ -106,18 +136,24 @@
    static, wrapping 2-col grid) with no animation at all. These overrides only make sense
    for the fan-spread layout, so they're scoped to not fight that native mobile grid. */
 @media screen and (min-width: 480px) {
-  .gallery-section { padding-top: 140px !important; }
+  .gallery-section { padding-top: clamp(40px, calc(var(--vh, 1vh) * 15), 140px) !important; }
   /* Oak's own IX2 script normally stamps an initial pixel size onto this block before any
      scroll happens; without it, the CSS alone is circular (width/height both percentage,
      each waiting on the other) and the whole photo cluster collapses to 0x0 -- invisible.
      Giving the block a real height breaks the circularity. Images: height now fixed, width
      auto, so each photo's own rectangle follows its real aspect ratio instead of a forced
-     crop -- portrait and landscape photos look correct without cropping. */
-  .gallery-image-block { height: clamp(220px, 30vw, 300px); margin-top: 24px !important; flex-shrink: 0; }
+     crop -- portrait and landscape photos look correct without cropping.
+     Same short-effective-height problem as About/Dish: this height only ever responded to
+     WIDTH (30vw), so two stacked rows of up to 300px each plus heading/padding/gaps easily
+     outgrow a short-but-wide laptop window (still overflowing at 860px of real height with
+     the animation fully settled, not just mid-scroll). min() takes whichever of the
+     width-based or height-based candidate is smaller, so a short window shrinks the photos
+     even on a wide screen; unchanged (300px cap) on any normal tall viewport. */
+  .gallery-image-block { height: clamp(120px, min(30vw, calc(var(--vh, 1vh) * 20)), 300px); margin-top: clamp(8px, calc(var(--vh, 1vh) * 2.2), 24px) !important; flex-shrink: 0; }
   /* Second row (desktop/tablet only -- mobile keeps the original 5 photos, plenty for that
      screen size): same fan layout, same spacing below the first row as the first row has
      below the heading. */
-  .gallery-image-block._2nd { display: flex; margin-top: 24px !important; }
+  .gallery-image-block._2nd { display: flex; margin-top: clamp(8px, calc(var(--vh, 1vh) * 2.2), 24px) !important; }
   .gallery-image { width: auto !important; height: 100% !important; object-fit: contain !important; }
   /* Oak's own .gallery-block relies on justify-content:space-between to spread the heading
      and the photo block across a fixed 100vh -- now that the section's padding-top has grown
