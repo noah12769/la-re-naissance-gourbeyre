@@ -501,6 +501,16 @@
   .dish-collection-list { scroll-snap-type: x mandatory; }
   .dish-collection-item { scroll-snap-align: center; }
 }
+/* Gallery ("En cuisine"): below 480px the JS reveal animation is intentionally skipped
+   (isTiny() in the gallery render loop below just shows the final static layout, matching
+   Oak's own plain-grid behavior at this breakpoint) -- but the scroll-PINNING mechanism
+   (position:sticky + a 300vh scroll-block reserving room for the skipped animation) was
+   still active, so mobile users had to scroll through 3 empty screen-heights of "nothing
+   moves" before reaching the next section. Un-pin to match: the section just flows normally. */
+@media screen and (max-width: 479px) {
+  .gallery-section { position: static !important; height: auto !important; min-height: 0 !important; overflow: visible !important; }
+  .gallery-scroll-block { height: auto !important; }
+}
 /* Hero title: forced to one line (never "LA RE-" / "NAISSANCE" split in two) -- actual
    fit-to-width sizing happens in JS below, since Oak's own fixed per-breakpoint px values
    could still overflow or wrap at in-between viewport sizes. */
