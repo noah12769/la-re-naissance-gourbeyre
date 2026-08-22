@@ -13,7 +13,18 @@
 // --vh is the one thing that's guaranteed to match what's really visible on any device,
 // any browser. Runs before the stylesheet below so --vh is set before first paint.
 (function () {
-  function setVH() { document.documentElement.style.setProperty('--vh', window.innerHeight * 0.01 + 'px'); }
+  // .short-vh: a real, device-agnostic "is there not much vertical room" signal for CSS to
+  // key off, alongside --vh. A media query keyed on width (max-width:767px) misses the
+  // actual case that matters here: a DESKTOP browser window that's short (not full-screen,
+  // browser chrome, taskbar) needs the exact same compacting a short phone does, and a wide
+  // window is fine even if it happens to be narrow-ish -- height is the only thing that
+  // actually determines whether content fits vertically. Global on <html> so any section's
+  // CSS can use it (html.short-vh .foo {...}), not just the ones that already had their own
+  // one-off version of this (previously only .hero-inner-block did).
+  function setVH() {
+    document.documentElement.style.setProperty('--vh', window.innerHeight * 0.01 + 'px');
+    document.documentElement.classList.toggle('short-vh', window.innerHeight < 820);
+  }
   setVH();
   window.addEventListener('resize', setVH);
   window.addEventListener('orientationchange', setVH);
@@ -52,6 +63,16 @@
    same space, and the second heading got flex-shrunk down to nothing. clamp()+vh lets the
    images themselves shrink first on a short screen, before anything else runs out of room. */
 .about-image { width: auto !important; height: var(--about-img-h, clamp(260px, calc(var(--vh, 1vh) * 40), 360px)) !important; aspect-ratio: 840 / 1080; }
+/* Reported again on a real short DESKTOP window: the section's content (image cluster +
+   headings + tagline, spread with justify-content:space-between) legitimately needs more
+   than 100vh once everything is at full size, pushing the last line (the tagline) below
+   what's reachable without extra scrolling. The mobile-width JS cap above doesn't touch
+   this case at all (it explicitly only runs under 768px, since on a WIDE short window the
+   fan-spread siblings have plenty of horizontal room -- it's vertical room that's short
+   here). A smaller image floor specifically on short windows (any width) frees up enough
+   room that the whole group fits without needing to scroll further to reach the tagline. */
+.short-vh .about-image { height: clamp(140px, calc(var(--vh, 1vh) * 24), 220px) !important; }
+.short-vh .about-section { padding-top: 10px !important; padding-bottom: 10px !important; }
 /* Same short-effective-height problem as the mobile one above, but on WIDE screens: About's
    layout is flex-flow:column at every breakpoint (not just mobile), so a desktop/laptop
    browser window that's short (not full-height, taskbar, bookmarks bar...) squeezes this
@@ -362,6 +383,24 @@
   .footer-inner-block-2 { grid-row-gap: 32px; }
   .footer-map-frame { height: 220px; }
 }
+/* Same trim, keyed on real window HEIGHT instead of width this time: reported again on a
+   real DESKTOP window (short, not full-screen -- phoenix logo cut off at the top, map cut
+   off at the bottom, same overflow as the mobile case above) that the max-width:767px rule
+   above never touches, since it's wide. .short-vh (set in <head>, window.innerHeight<750)
+   is the width-agnostic version of the same signal. */
+.short-vh .footer-heading { font-size: 40px !important; }
+.short-vh .footer-block { gap: 24px !important; }
+.short-vh .footer-inner-block-2 { grid-row-gap: 20px; }
+.short-vh .footer-map-frame { height: 160px; }
+.short-vh .footer-section { padding-top: 24px !important; padding-bottom: 24px !important; }
+/* .footer-inner-block-1 (SUIVEZ-NOUS + the Instagram badge) was still using its full-size
+   desktop values (140px badge, 40px gap) on a wide-but-short window -- only the width-keyed
+   breakpoints below 991px had ever reduced it, so a wide short window fell through the
+   cracks the same way the other footer pieces originally did. 205px measured for this one
+   block alone on a real short window. */
+.short-vh .footer-icon { width: 70px; }
+.short-vh .footer-inner-block-1 { grid-row-gap: 16px; grid-column-gap: 16px; }
+.short-vh .footer-logo { width: 80px; }
 /* About section's two "headings" were plain divs -- invisible to screen readers and search
    engines as section headings, breaking the page's H1>H2 outline. Now real <h2>, with the
    browser's default heading margin zeroed out so the (already-tuned) animation spacing
