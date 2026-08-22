@@ -156,17 +156,14 @@
 .about-section { height: auto !important; min-height: calc(var(--vh, 1vh) * 100) !important; display: flex !important; flex-direction: column !important; }
 .about-container { flex: 1 !important; width: 100% !important; min-height: 0 !important; display: flex !important; flex-direction: column !important; }
 .about-block { flex: 1 !important; min-height: 0 !important; }
-/* Same "min-height:100vh is a floor the phone doesn't need to reach" fix as Hero, but here
-   it read differently: since .about-block is a flex column with Oak's own
-   justify-content:space-between, forcing the section to 100vh didn't leave dead space
-   trailing after the tagline -- it stretched the GAPS BETWEEN the heading/images/heading/
-   tagline stack, since space-between actively spreads its children across whatever height
-   it's given. On a phone where the real content is noticeably shorter than a full screen,
-   that reads as several large, oddly empty gaps between pieces of text/images that should
-   read close together. Mobile now sizes to real content; desktop/tablet unchanged. */
-@media screen and (max-width: 479px) {
-  .about-section { min-height: 0 !important; }
-}
+/* REVERTED (explicitly requested back): About's background is meant to fill the whole
+   screen and adapt to it, on every breakpoint, mobile included -- confirmed even though
+   that's what spreads the heading/images/heading/tagline stack across visible gaps via
+   Oak's own justify-content:space-between on a phone whose real content is shorter than
+   100vh. The actual problem being solved elsewhere this session was content overflowing
+   PAST one screen (needing extra scroll to reach the tagline), not the section legitimately
+   filling exactly one screen with breathing room between its pieces -- those are different
+   things, and only the former needed fixing. */
 /* Matches the same gap used between the Hero title and the content below it (see
    .hero-block's padding-top / .hero-section's padding-bottom further up), used as BOTH the
    top and bottom padding here -- explicitly requested to read the same above and below the
@@ -201,17 +198,25 @@
    %-of-parent) so the orange block's size stays exactly what it always was regardless of
    how tall the section ends up -- percentage heights don't reliably resolve against an
    auto-height ancestor anyway. */
-.navbar-hero, .hero-section { height: auto !important; min-height: calc(var(--vh, 1vh) * 100) !important; }
-/* Reported on real phones: forcing a full 100vh floor when this section's own content
-   (image + title + tagline/CTAs) doesn't naturally need that much room left a large, dead
-   band of plain background below the last button before the section actually ended --
-   the min-height was purely a safety floor (added so content could never be forced to
-   SHRINK below a full screen), not something the design needs an oversized phone screen to
-   actually reach. Desktop/tablet keep the guaranteed-full-screen floor unchanged (not
-   reported as a problem there); mobile now just hugs its real content instead. */
-@media screen and (max-width: 479px) {
-  .navbar-hero, .hero-section { min-height: 0 !important; }
-}
+/* REVERTED (explicitly requested back): the Hero background is meant to fill the whole
+   screen and adapt to it on every breakpoint, mobile included -- some blank band below the
+   last button on a phone whose content doesn't need a full screen is accepted as part of
+   that. The --hero-pad-top fix further down (fit() script) still stands on its own merit
+   regardless: it keeps the space reserved above the title accurate to the image's REAL
+   rendered height (post 16:9-cap) instead of an inflated theoretical vh figure, so this
+   floor doesn't also carry a second, unrelated bug's worth of extra empty space.
+   Found while re-checking this: .navbar-hero (real background box, dark, Oak's own
+   display:flex;flex-flow:column) and .hero-section (its flex child, no background of its
+   own -- .navbar-hero's shows through) were EACH independently given the same
+   min-height:100vh -- exactly the double-counting pattern already fixed elsewhere this
+   session (About, Footer): .hero-section's own 100vh floor stacks ON TOP of .navbar-hero's
+   fixed-height .navbar-section sibling (96px), making the real total ~100vh+96px on every
+   screen, not just mobile -- confirmed measured (1022px on a 926px-tall phone). Only
+   .navbar-hero (the actual background box) needs the real floor; .hero-section is a flex
+   item of it and just needs flex:1 to fill whatever's left after .navbar-section, the same
+   flex-chain fix already used for About/Footer instead of nested independent min-heights. */
+.navbar-hero { height: auto !important; min-height: calc(var(--vh, 1vh) * 100) !important; }
+.hero-section { height: auto !important; flex: 1 !important; min-height: 0 !important; }
 /* .hero-block itself does NOT also get min-height:100vh: it's nested inside .hero-section's
    own padded content box, so demanding a full extra 100vh for it on top of .hero-section's
    own 100vh floor (plus that section's 50px padding) was asking for 100vh+50px total --
