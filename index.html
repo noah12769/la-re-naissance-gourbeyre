@@ -127,12 +127,9 @@
    content, at every breakpoint. Oak's own padding-top/bottom here is a flat 40px at every
    width (only left/right scale via a var) -- overridden to actually scale the way the
    Hero gap does. */
-/* Requested: differentiate this section from Nos créations/Réservation/Galerie, which all
-   share the cream page background by default (Oak never set a background-color here). Reuses
-   the same accent orange already used for Nous rendre visite/the CTA buttons rather than
-   introducing a new color -- About's own text is already the same dark ink used on top of
-   that orange elsewhere (Nous rendre visite), so no color changes needed there. */
-.about-section { background-color: var(--accent-color--a-500); }
+/* Orange background was only ever a test -- reverted back to Oak's original (no
+   background-color set at all here, same as Nos créations/Réservation/Galerie, letting the
+   page's own cream background show through). */
 .about-section { padding-top: 40px !important; padding-bottom: 40px !important; }
 @media screen and (max-width: 991px) {
   .about-section { padding-top: 53px !important; padding-bottom: 53px !important; }
@@ -353,6 +350,18 @@
    halved, without touching the phone-row-to-map gap above it (same shared flex gap
    otherwise governs both). */
 .footer-flex-4 { margin-top: -29px; }
+/* Requested: the footer was taller than a real mobile screen by 250-450px depending on
+   device (measured directly), reading as "just a sliver of the section above peeking
+   through" instead of the whole footer being reachable on the page. Trimmed from the three
+   biggest contributors -- title, the gaps between groups, and the map embed -- keeping the
+   title reduction explicitly light (a still-legible ~20% smaller, not a drastic cut) per
+   direct instruction, and taking the rest from spacing/the map instead. */
+@media screen and (max-width: 767px) {
+  .footer-heading { font-size: 48px !important; }
+  .footer-block { gap: 40px !important; }
+  .footer-inner-block-2 { grid-row-gap: 32px; }
+  .footer-map-frame { height: 220px; }
+}
 /* About section's two "headings" were plain divs -- invisible to screen readers and search
    engines as section headings, breaking the page's H1>H2 outline. Now real <h2>, with the
    browser's default heading margin zeroed out so the (already-tuned) animation spacing
