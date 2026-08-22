@@ -285,6 +285,16 @@
    positioning alone still keeps the pin feel, our own scroll-progress JS doesn't depend
    on this element's height anyway. */
 .reservation-section { height: auto !important; min-height: 100vh; overflow-x: hidden !important; overflow-y: visible !important; }
+/* Desktop-only complaint (real HP laptop widths, e.g. 1425px): the section's horizontal
+   padding is driven by --_sizes---section--padding-section, a shared Oak variable that's
+   only 60px on desktop -- fine on very wide/ultrawide screens where the 1400px content
+   max-width already leaves large side margins, but on ordinary laptop widths (1280-1536px,
+   below where that max-width cap kicks in) the content column ends up nearly edge-to-edge,
+   reading as oversized/cramped. Widen just the side breathing room on the two sections
+   flagged (reservation cards + footer), desktop only -- mobile/tablet padding untouched. */
+@media screen and (min-width: 992px) {
+  .reservation-section, .footer-section { padding-left: 100px !important; padding-right: 100px !important; }
+}
 .reservation-item { will-change: transform; }
 .reservation-icon { will-change: transform, opacity; }
 /* The badge was originally anchored bottom:0% of .reservation-item-block, which put it
