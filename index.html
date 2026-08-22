@@ -875,6 +875,27 @@
       });
     }
 
+    // The fan-spread itself (img1x/img2x/img4x/img5x above, and the matching static CSS at
+    // rest) places each outer photo at +-107%/214% of ITS OWN width -- a photo's own size is
+    // exactly what the spread scales with, uncapped, so making the photos bigger (per
+    // explicit request) directly pushed the outer two off the edge of the visible section on
+    // anything narrower than a wide desktop (confirmed: -131px past the left edge at 768px
+    // wide). Total spread reaches ~2.64x a photo's own width beyond the row's center on each
+    // side (measured empirically) -- ~5.3x a photo's width for the whole row. Since photos
+    // are portrait (900x1200 native, 0.75 aspect), that pins down exactly how tall a photo
+    // can get before the row outgrows the real available width. Recomputed on resize just
+    // like everything else here; container width (not viewport width) is the correct
+    // reference, same reasoning as the dish carousel's centering math elsewhere in this file.
+    var gallerySpreadContainer = document.querySelector('.gallery-container');
+    var GALLERY_SPREAD = 5.3, GALLERY_ASPECT = 0.75, GALLERY_SAFETY = 0.92, GALLERY_MAX_H = 340;
+    function capGallerySize() {
+      if (isTiny() || !gallerySpreadContainer) return;
+      var w = gallerySpreadContainer.clientWidth;
+      var maxHeight = Math.min(GALLERY_MAX_H, (w * GALLERY_SAFETY) / GALLERY_SPREAD / GALLERY_ASPECT);
+      [row1, row2].forEach(function (row) { if (row) row.style.height = Math.round(maxHeight) + 'px'; });
+    }
+
+    capGallerySize();
     measureGap();
 
     if (reduceMotion) { render(100); return; }
@@ -887,7 +908,7 @@
       render(shown);
       raf = (Math.abs(target - shown) > 0.001) ? requestAnimationFrame(loop) : null;
     }
-    function kick() { measureGap(); if (raf === null) raf = requestAnimationFrame(loop); }
+    function kick() { capGallerySize(); measureGap(); if (raf === null) raf = requestAnimationFrame(loop); }
     window.addEventListener('scroll', kick, { passive: true });
     window.addEventListener('resize', kick);
     kick();
