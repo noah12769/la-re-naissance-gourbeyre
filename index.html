@@ -98,28 +98,33 @@
    compressed toward their floor on real Android screens to force everything into exactly
    one screen -- explicitly reported as still looking too small. Section now fills one
    screen when there's room and extends (scrollable) when the content needs more. */
-/* .about-block's own height:100% (Oak's base CSS) can't resolve to anything useful once
-   .about-section's own `height` is 'auto' (only min-height set) -- percentage heights don't
-   resolve against an ancestor whose height is 'auto', spec behavior, regardless of what
-   min-height ends up rendering as. Without a real height to fill, .about-block just sizes to
-   its own content and sits at the section's TOP, leaving flex-end (set on .about-block
-   itself) nothing to actually push against -- the gap just moves from "inside .about-block"
-   to "below it". Making .about-section itself the flex container sidesteps the percentage
-   chain entirely: flex alignment works off the container's real final size directly. */
-.about-section { height: auto !important; min-height: calc(var(--vh, 1vh) * 100) !important; display: flex !important; flex-direction: column !important; justify-content: flex-end !important; }
-/* Oak's own .about-block uses justify-content:space-between at desktop widths (no override
-   existed for it before -- only the mobile media queries touch it) -- harmless when the
-   section was forced to exactly one screen, but with it now free to be taller (min-height,
-   not a fixed height), space-between stretches the 4 items across however much extra room
-   there is. Explicitly requested layout: the tagline ("COMME LE PHÉNIX...") sits flush
-   against the section's own bottom edge, with the rest of the column stacked above it --
-   flex-end (not center, which still left dead space above AND below the group whenever the
-   section was taller than its content) is what actually anchors the last item to the
-   bottom, matching that. Consistent at every breakpoint (also replaces Oak's own mobile
-   override, which used center too). */
-.about-block { justify-content: flex-end !important; gap: 48px; }
-@media screen and (max-width: 767px) {
-  .about-block { gap: 32px; }
+/* height:auto with NO min-height: an earlier version of this fix added
+   min-height:100vh (to keep About at least one full screen tall, matching Hero/Gallery) --
+   turned out to make .about-container/.about-block's own height:100% partially resolve
+   again in Chromium once .about-section's used height became "definite enough" via that
+   min-height, which broke the padding-top/padding-bottom symmetry below: measured 40px top
+   vs 236px bottom instead of matching. Confirmed directly (removed min-height as a test,
+   both gaps became exactly 40px/40px, matching). Pure height:auto avoids that: the section
+   is exactly padding + content, nothing more, so the two paddings set below are exactly what
+   renders -- About no longer guarantees filling one full screen the way Hero/Gallery do, but
+   that was never explicitly asked for; the matching top/bottom padding was. .about-block and
+   .about-container are both back to Oak's completely untouched defaults (their own
+   justify-content, the individual align-self:flex-start on the headings/tagline that makes
+   the left/right staggered layout what it is) -- nothing here touches how they lay out their
+   own children, only .about-section's own outer height/padding. */
+.about-section { height: auto !important; }
+/* Matches the same gap used between the Hero title and the content below it (see
+   .hero-block's padding-top / .hero-section's padding-bottom further up), used as BOTH the
+   top and bottom padding here -- explicitly requested to read the same above and below the
+   content, at every breakpoint. Oak's own padding-top/bottom here is a flat 40px at every
+   width (only left/right scale via a var) -- overridden to actually scale the way the
+   Hero gap does. */
+.about-section { padding-top: 40px !important; padding-bottom: 40px !important; }
+@media screen and (max-width: 991px) {
+  .about-section { padding-top: 53px !important; padding-bottom: 53px !important; }
+}
+@media screen and (max-width: 479px) {
+  .about-section { padding-top: 80px !important; padding-bottom: 80px !important; }
 }
 /* Gallery gets the same "grow instead of shrink" treatment as Hero, per explicit request:
    compressing the photos to guarantee everything fits in exactly one screen made them look
@@ -162,19 +167,20 @@
    auto-height math at the source; the transform in fit() then only needs to fine-tune the
    exact 32px gap, not carry the whole distance. */
 .hero-block { padding-top: calc(var(--vh, 1vh) * 69); }
-/* Breathing room below the tagline/CTAs before the section actually ends -- previously just
-   whatever Oak's own fixed 40px section padding-bottom happened to be, at every breakpoint.
-   Matching it exactly to .hero-block's own row-gap (53px/80px) at the narrower breakpoints
-   read as too much on a real mobile screen -- toned down to a flat 40px everywhere instead
-   of scaling all the way up with the row-gap. */
+/* Breathing room below the tagline/CTAs before the section actually ends -- explicitly
+   requested to always match .hero-block's own row-gap above the tagline/CTAs (the space
+   between the title and the content right after it), at every breakpoint, so the gap reads
+   the same above and below that block regardless of screen size. */
 .hero-section { padding-bottom: 40px !important; }
 @media screen and (max-width: 991px) {
   .hero-image { height: calc(var(--vh, 1vh) * 51) !important; }
   .hero-block { padding-top: calc(var(--vh, 1vh) * 51); }
+  .hero-section { padding-bottom: 53px !important; }
 }
 @media screen and (max-width: 479px) {
   .hero-image { height: calc(var(--vh, 1vh) * 48) !important; }
   .hero-block { padding-top: calc(var(--vh, 1vh) * 48); }
+  .hero-section { padding-bottom: 80px !important; }
 }
 .about-scroll-block { height: calc(var(--vh, 1vh) * 250); }
 .dish-scroll-block { height: calc(var(--vh, 1vh) * 200); }
@@ -291,6 +297,16 @@
    This spacer adds real scroll distance with nothing happening in it, purely to hold
    .visit-section in view longer before the footer is allowed to start appearing. */
 .visit-pause-spacer { height: calc(var(--vh, 1vh) * 60); }
+/* .visit-section's own content doesn't reach a full screen tall, so during the pause above
+   (while it's stuck at the top, scrolling through the spacer) the page's plain background
+   showed through underneath it, then the footer starting to peek in above THAT -- an
+   unintended visible cream/blank gap, reported as broken. Giving the section itself
+   min-height:100vh makes its own orange background extend to actually fill the screen while
+   it's pinned, so the pause reads as the fully-formed content just sitting still, not
+   revealing anything behind it. Doesn't change how long it stays pinned for (that's the
+   spacer's job, independent of the sticky element's own height) or how visit-block lays out
+   its own content -- purely fills the section's own box. */
+.visit-section { min-height: calc(var(--vh, 1vh) * 100); }
 .footer-section { height: auto !important; min-height: 100vh; overflow-x: hidden !important; overflow-y: visible !important; }
 /* Same space-between issue as the gallery block: Oak's .footer-block spread its 3 groups
    (heading / social / phones+map+credits) across a hard 100vh. With the section now free
