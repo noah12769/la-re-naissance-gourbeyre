@@ -51,7 +51,7 @@
    have enough room left in the flex column for the two headings + tagline sharing the
    same space, and the second heading got flex-shrunk down to nothing. clamp()+vh lets the
    images themselves shrink first on a short screen, before anything else runs out of room. */
-.about-image { width: auto !important; height: clamp(260px, calc(var(--vh, 1vh) * 40), 360px) !important; aspect-ratio: 840 / 1080; }
+.about-image { width: auto !important; height: var(--about-img-h, clamp(260px, calc(var(--vh, 1vh) * 40), 360px)) !important; aspect-ratio: 840 / 1080; }
 /* Same short-effective-height problem as the mobile one above, but on WIDE screens: About's
    layout is flex-flow:column at every breakpoint (not just mobile), so a desktop/laptop
    browser window that's short (not full-height, taskbar, bookmarks bar...) squeezes this
@@ -98,24 +98,29 @@
    compressed toward their floor on real Android screens to force everything into exactly
    one screen -- explicitly reported as still looking too small. Section now fills one
    screen when there's room and extends (scrollable) when the content needs more. */
-/* Back to min-height:100vh -- without it the orange background was only as tall as the
-   content (~1/3 of a normal desktop viewport, per a real screenshot), and on mobile the
-   3-photo cluster's rotate/scale reveal animation didn't have enough vertical room before
-   hitting the section's own overflow:hidden edge, clipping the left/right photos (only the
-   center one stayed fully visible). Explicitly requested: keep the text exactly where it
-   currently sits (the zigzag layout is fine, don't touch it), just extend the background
-   canvas below it to fill close to a full screen.
-   The previous min-height attempt broke the padding-top/bottom symmetry because
-   .about-container/.about-block's own height:100% (Oak's default) partially resolved once
-   .about-section's height became "definite enough" via min-height, and their own
-   justify-content then redistributed the extra room unevenly (40px top vs 236px bottom).
-   Forcing .about-container/.about-block to height:auto here (below) sidesteps that
-   entirely: neither ever tries to fill the taller section, so they just render at their
-   natural size in normal document flow, sitting exactly where they already do -- the extra
-   room from min-height simply becomes blank background after the content, before
-   padding-bottom, instead of being redistributed into the content's own internal gaps. */
+/* min-height:100vh on the section -- without it the orange background was only as tall as
+   the content (~1/3 of a normal desktop viewport, per a real screenshot). Explicitly
+   revised after seeing it live: content clustering near the top with a dead zone below
+   (which is what a plain height:auto .about-container/.about-block produces) isn't what
+   was wanted either -- the heading ("PORTÉE PAR SÉVERINE...") staying near the top is
+   correct, but the image cluster/second heading/tagline should spread down to use the
+   section's real height, not sit bunched together above a blank gap.
+   .about-container gets its own real (non-percentage) min-height so it has a genuine
+   final size regardless of .about-section's own auto height -- .about-block's height:100%
+   (Oak's default, untouched) can then resolve against THAT, and Oak's own
+   justify-content (space-between at desktop, center at mobile, likewise untouched) does
+   the spreading using the real height, exactly like it already does on every other section
+   that isn't force-fit to exactly one screen. */
 .about-section { height: auto !important; min-height: calc(var(--vh, 1vh) * 100) !important; }
-.about-container, .about-block { height: auto !important; }
+.about-container { min-height: calc(var(--vh, 1vh) * 100) !important; }
+/* .about-container having a real min-height turned out NOT to be enough on its own:
+   .about-block's own height:100% (Oak's default) still measured content-tight (624px)
+   instead of filling it -- confirmed directly, percentage height doesn't reliably
+   propagate through this specific 2-level chain in Chromium regardless of how the
+   ancestor's own height became definite. Giving .about-block the SAME real min-height
+   directly sidesteps the percentage chain entirely (same fix as .about-container above,
+   one level down) -- its own justify-content now has actual room to redistribute using. */
+.about-block { min-height: calc(var(--vh, 1vh) * 100) !important; }
 /* Matches the same gap used between the Hero title and the content below it (see
    .hero-block's padding-top / .hero-section's padding-bottom further up), used as BOTH the
    top and bottom padding here -- explicitly requested to read the same above and below the
@@ -720,7 +725,60 @@
       raf = (Math.abs(target - shown) > 0.001) ? requestAnimationFrame(loop) : null;
     }
 
+    // Oak's own .about-image._2/._3 offsets (top/right:-14%/-86%, position:absolute) are
+    // percentages of .about-image-block's own width -- which is exactly image1's own
+    // rendered width, since image1 is the only in-flow child (2/3 are absolute). Oak's
+    // original template paired this with an image that shrank a LOT on narrow screens
+    // (down to 102px at its smallest breakpoint), so the same -86% stayed a small absolute
+    // shift there. Overriding the image size to stay much bigger (per explicit request)
+    // broke that pairing: the same -86% of a now-much-wider box became a much bigger
+    // absolute shift, pushing images 2/3 measurably off both edges on a real phone width
+    // (confirmed directly: 184px cut off on each side at 390px wide). Since the -86%/-14%
+    // relationship is architecture-constant (proportional to image1's width, independent of
+    // its actual size), measuring it once and solving backwards gives the largest image1
+    // size that keeps images 2/3 fully on-screen, instead of guessing at a fixed cap.
+    function capAboutImageSize() {
+      if (!img1 || !img2 || !img3 || window.innerWidth > 767) return;
+      // Always measure from the TRUE CSS-declared (clamp) baseline, not from whatever a
+      // previous correction already shrank things to -- solving from an already-corrected
+      // size compounded the correction on every call (scroll fires this often) instead of
+      // converging, shrinking the images further each time.
+      document.documentElement.style.removeProperty('--about-img-h');
+      // Also measure against the images' FINAL/settled transform (rotate ±8deg, scale:1),
+      // not whatever mid-animation scale currently applies -- img1/2/3 scale from 0/0.2 up
+      // to 1 as the user scrolls through this section (see the img*s tracks above), and
+      // measuring while still scaled down (or right after load, before any scroll, when
+      // they're invisible at scale 0) gave a meaningless reading -- confirmed directly:
+      // recomputing at two different scroll positions gave two different "corrected"
+      // sizes (159px, then 54px) instead of one stable answer. render() overwrites these
+      // temporary transforms again on the very next animation frame with whatever the real
+      // current progress is, so this never shows as a visible flash.
+      var savedT1 = img1.style.transform, savedT2 = img2.style.transform, savedT3 = img3.style.transform;
+      img1.style.transform = 'scale(1)';
+      img2.style.transform = 'rotate(-8deg) scale(1)';
+      img3.style.transform = 'rotate(8deg) scale(1)';
+      var r1 = img1.getBoundingClientRect();
+      var r2 = img2.getBoundingClientRect();
+      var r3 = img3.getBoundingClientRect();
+      img1.style.transform = savedT1;
+      img2.style.transform = savedT2;
+      img3.style.transform = savedT3;
+      if (r1.width === 0) return;
+      var centerX = r1.left + r1.width / 2;
+      var reachRight = (r2.right - centerX) / r1.width;
+      var reachLeft = (centerX - r3.left) / r1.width;
+      var margin = 16;
+      var maxWidthRight = (window.innerWidth - margin - centerX) / reachRight;
+      var maxWidthLeft = (centerX - margin) / reachLeft;
+      var maxWidth = Math.min(maxWidthRight, maxWidthLeft, r1.width);
+      var scale = maxWidth / r1.width;
+      if (scale < 0.999) {
+        document.documentElement.style.setProperty('--about-img-h', Math.round(r1.height * scale) + 'px');
+      }
+    }
+
     function kick() {
+      capAboutImageSize();
       if (raf === null) raf = requestAnimationFrame(loop);
     }
     window.addEventListener('scroll', kick, { passive: true });
