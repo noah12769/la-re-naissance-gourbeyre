@@ -122,6 +122,20 @@
    to .short-vh below, done properly instead of accidentally. */
 .short-vh .about-text-1 { font-size: clamp(18px, calc(var(--vh, 1vh) * 4.6), 48px) !important; }
 .short-vh .about-text-2 { font-size: clamp(12px, calc(var(--vh, 1vh) * 2.7), 24px) !important; }
+/* The 48px ceiling above is fine on a short DESKTOP window (.short-vh isn't width-gated --
+   see its own definition up top -- and desktop's .about-text-1 box is a roomy 680px there,
+   plenty of space for 48px text). Below 991px wide, Oak's own box for this element is a flat
+   260-348px instead (sized for ITS 18-24px default, well before this clamp existed) -- a tall
+   VH reading a short+narrow phone can still produce (e.g. .short-vh's own 820px cutoff sits
+   right where many phones land with their address bar hidden mid-scroll) pushed the clamp
+   toward its 48px ceiling in that same narrow box, and "RÉGULIÈREMENT" -- one single word
+   that can't wrap on its own -- no longer fit, overflowing past the edge of
+   .about-heading-block's overflow:hidden and getting visibly clipped. Capped lower here,
+   specifically in the width range where the box is actually narrow, so the font can never
+   again ask for more room than that box has to give. */
+@media screen and (max-width: 991px) {
+  .short-vh .about-text-1 { font-size: clamp(18px, calc(var(--vh, 1vh) * 4.6), 30px) !important; }
+}
 /* Oak's own mobile .about-block uses a fixed 80px gap (x3 between the 4 items) instead of
    the space-between desktop uses -- on a real short+narrow phone (360x640) that fixed gap
    alone was 240px, the single biggest contributor to the tagline running 237px past the
@@ -135,6 +149,12 @@
    "disappearing" the way text does). Headings protected from shrinking away; the image
    block is left free to be the one that gives on a short screen. */
 .about-heading-block { flex-shrink: 0; }
+/* Consumes the two overhangs JS measures in capAboutImageSize() (see the long comment
+   there) so the gap to the heading above and the heading below reads the same regardless
+   of how far the rotated img2/img3 stick out past img1's own box on either side. Defaults
+   to 0px (no correction) until JS has actually measured something -- never negative, only
+   ever adds back whatever a rotated photo was eating into that side's gap. */
+.about-image-block { margin-top: var(--about-cluster-over-top, 0px); margin-bottom: var(--about-cluster-over-bottom, 0px); }
 /* Same short-viewport-height problem as the About images, on the hero this time: the
    tagline+buttons stack (.hero-inner-block, 36px gaps at mobile) was tall enough that on a
    ~640px-tall screen its last line ran past the bottom of the 100vh hero -- not clipped
@@ -537,6 +557,20 @@ img[alt="Steak de lambi"] { object-position: 50% 78%; }
    browser's default heading margin zeroed out so the (already-tuned) animation spacing
    doesn't shift. */
 .about-text-1 { margin: 0; }
+/* Reported: the last letter of "RÉGULIÈREMENT" gets visibly cut off. Root cause: Oak's own
+   width on this element is a flat fixed px per breakpoint (260px at <=479px, 348px at
+   <=991px) -- sized for ITS OWN default font-size at each of those widths, not for the
+   bigger clamp()-driven size this build actually uses under .short-vh (see the font-size
+   rules below). A single long word that ends up wider than its fixed box can't wrap (only
+   whole words wrap), so it just overflows the box -- and .about-heading-block, right above,
+   carries overflow:hidden (needed for the walking-block reveal mask to work at all), which
+   silently clips whatever spills past the edge instead of letting it show. The real fix is
+   the lowered .short-vh clamp ceiling further down (keeps the font small enough to always
+   fit inside Oak's own narrow box, rather than widening the box and disturbing the
+   deliberately narrow text column this section was tuned to). overflow-wrap is a second,
+   harmless safety net regardless -- if a word ever still doesn't fit, it wraps instead of
+   getting clipped, which is always the better failure mode for a heading. */
+.about-text-1 { overflow-wrap: break-word; }
 /* .about-text-2 ("COMME LE PHÉNIX...") was pinned bottom:0%/left:0% via position:absolute,
    completely independent of the flex layout (3 space-between-distributed items: the two
    headings + the image block) that everything else in .about-block uses. On a short-height
@@ -1154,6 +1188,34 @@ img[alt="Steak de lambi"] { object-position: 50% 78%; }
       if (scale < 0.999) {
         document.documentElement.style.setProperty('--about-img-h', Math.round(r1.height * scale) + 'px');
       }
+      // Reported: the gap above the photos ("PORTÉE PAR..." to the images) reads bigger
+      // than the gap below them (images to "UNE CARTE QUI CHANGE..."), even though both
+      // are meant to be the same flex gap. They ARE the same gap in the layout Oak/the flex
+      // box actually measures -- but only img1 is a normal in-flow box; img2/img3 are
+      // rotated and absolutely positioned OVER it (that's the fanned-photos look), so
+      // .about-image-block's own layout height is just img1's box, while the two rotated
+      // photos visually stick out past whichever edge their rotation happens to push them
+      // toward -- eating into that side's gap without the flex box ever knowing, which is
+      // exactly the kind of asymmetry a fixed CSS gap can't see or correct for on its own.
+      // Measuring the real union of all three (same settled-transform trick as above) and
+      // feeding the two overhangs back in as extra margin keeps the VISIBLE gap even on
+      // both sides regardless of which way -8deg/+8deg happens to push things at whatever
+      // size the images render at.
+      img1.style.transform = 'scale(1)';
+      img2.style.transform = 'rotate(-8deg) scale(1)';
+      img3.style.transform = 'rotate(8deg) scale(1)';
+      var u1 = img1.getBoundingClientRect();
+      var u2 = img2.getBoundingClientRect();
+      var u3 = img3.getBoundingClientRect();
+      img1.style.transform = savedT1;
+      img2.style.transform = savedT2;
+      img3.style.transform = savedT3;
+      var clusterTop = Math.min(u1.top, u2.top, u3.top);
+      var clusterBottom = Math.max(u1.bottom, u2.bottom, u3.bottom);
+      var overTop = Math.max(0, Math.round(u1.top - clusterTop));
+      var overBottom = Math.max(0, Math.round(clusterBottom - u1.bottom));
+      document.documentElement.style.setProperty('--about-cluster-over-top', overTop + 'px');
+      document.documentElement.style.setProperty('--about-cluster-over-bottom', overBottom + 'px');
     }
 
     function kick() {
