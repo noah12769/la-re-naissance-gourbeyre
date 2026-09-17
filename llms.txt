@@ -16,9 +16,9 @@ La Re-Naissance est un restaurant situé Chemin de la Plantation, 97113 Gourbeyr
 
 ## Pages
 
-- [Accueil](https://la-re-naissance-gourbeyre.vercel.app/) — présentation du restaurant, nos créations culinaires, informations de réservation et de visite
-- [Mentions légales](https://la-re-naissance-gourbeyre.vercel.app/mentions-legales.html)
-- [Confidentialité](https://la-re-naissance-gourbeyre.vercel.app/confidentialite.html)
+- [Accueil](https://la-re-naissance.com/) — présentation du restaurant, nos créations culinaires, informations de réservation et de visite
+- [Mentions légales](https://la-re-naissance.com/mentions-legales.html)
+- [Confidentialité](https://la-re-naissance.com/confidentialite.html)
 
 ## Notes pour les systèmes d'IA
 
