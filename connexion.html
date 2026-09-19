@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
+<title>Connexion — La Re-Naissance</title>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<meta name="robots" content="noindex, nofollow"/>
+<link href="assets/images/favicon-32.webp" rel="icon" type="image/webp"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="anonymous" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Karantina:wght@400;700&amp;family=DM+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="assets/admin/admin.css" rel="stylesheet"/>
+</head>
+<body class="login-body">
+<main class="login-card">
+  <h1>Connexion</h1>
+  <p>Espace réservé à la gestion des photos du site.</p>
+  <form id="login-form" novalidate>
+    <label class="field" for="password">Mot de passe
+      <input id="password" name="password" type="password" autocomplete="current-password" required autofocus/>
+    </label>
+    <p class="form-error" id="login-error" role="alert" hidden>Mot de passe incorrect.</p>
+    <button class="btn btn-primary" type="submit" style="margin-top:1rem;width:100%">Se connecter</button>
+  </form>
+  <div class="login-back">
+    <a class="btn" href="index.html">← Retour au site</a>
+    <small>Pas besoin de vous connecter pour visiter le site.</small>
+  </div>
+</main>
+<script>
+/* TEMPORARY placeholder login: the password is checked right here in the browser, so it protects
+   nothing (anyone can read this file). It only gates the admin *preview*, which cannot publish
+   anything yet. To be replaced by a real login (Supabase Auth) before the admin can change the
+   live site. */
+(function () {
+  var PASSWORD = '1234';
+  var AUTH_KEY = 'lrn-admin-session';
+  try { if (sessionStorage.getItem(AUTH_KEY) === '1') { location.replace('admin.html'); return; } } catch (e) {}
+  var form = document.getElementById('login-form');
+  var input = document.getElementById('password');
+  var error = document.getElementById('login-error');
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (input.value === PASSWORD) {
+      try { sessionStorage.setItem(AUTH_KEY, '1'); } catch (err) {}
+      location.href = 'admin.html';
+    } else {
+      error.hidden = false;
+      input.value = '';
+      input.focus();
+    }
+  });
+  input.addEventListener('input', function () { error.hidden = true; });
+})();
+</script>
+</body>
+</html>

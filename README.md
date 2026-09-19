@@ -82,6 +82,16 @@ Toutes les images utilisées par le site sont en `.webp`, généralement en 3 ta
 (`-p-500`, `-p-800`, taille pleine) référencées via `srcset`/`sizes` pour servir la bonne
 résolution selon l'écran.
 
+## Espace admin (aperçu)
+
+`connexion.html` → `admin.html` (+ `assets/admin/`) : interface pour gérer les plats de « Nos
+créations » (nom + photo) et les photos de « Souvenir » (ajout, recadrage/zoom, suppression).
+**Aperçu uniquement pour l'instant** : les modifications restent dans le `localStorage` du
+navigateur et ne changent pas le site public. Le mot de passe (`1234`) est vérifié côté client
+dans `connexion.html` — il ne protège rien et doit être remplacé par Supabase Auth (avec la
+base de données + le stockage des photos) avant que l'admin puisse publier quoi que ce soit.
+Lien d'accès : « Connexion » dans le footer de `index.html`.
+
 ## Audit
 
 Un audit complet (SEO, performance, accessibilité, sécurité, RGPD, structure) est

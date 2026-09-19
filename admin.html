@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
+<title>Gestion du site — La Re-Naissance</title>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<meta name="robots" content="noindex, nofollow"/>
+<link href="assets/images/favicon-32.webp" rel="icon" type="image/webp"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="anonymous" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Karantina:wght@400;700&amp;family=DM+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="assets/admin/admin.css" rel="stylesheet"/>
+</head>
+<body>
+<header class="app-header">
+  <h1 class="app-title">La Re-Naissance <span>· gestion du site</span></h1>
+  <div class="app-header-actions">
+    <a class="btn btn-small" href="index.html" target="_blank" rel="noopener">Voir le site</a>
+    <button class="btn btn-small" type="button" id="logout">Déconnexion</button>
+  </div>
+</header>
+
+<main class="wrap">
+  <p class="notice"><strong>Mode aperçu.</strong> Les modifications sont gardées dans ce navigateur uniquement : elles ne sont pas encore publiées sur le site. La connexion à la base de données arrive à l'étape suivante.</p>
+
+  <div class="tabs" role="tablist" aria-label="Sections du site">
+    <button class="tab" role="tab" id="tab-creations" aria-controls="panel-creations" aria-selected="true" type="button">Nos créations <span id="count-creations"></span></button>
+    <button class="tab" role="tab" id="tab-souvenir" aria-controls="panel-souvenir" aria-selected="false" tabindex="-1" type="button">Souvenir <span id="count-souvenir"></span></button>
+  </div>
+
+  <section id="panel-creations" role="tabpanel" aria-labelledby="tab-creations">
+    <div class="panel-head">
+      <div>
+        <h2>Nos créations</h2>
+        <p>Les plats présentés dans le carrousel du site. Cliquez sur une ligne pour changer le nom ou la photo.</p>
+      </div>
+    </div>
+    <ul class="dish-list" id="dish-list"></ul>
+  </section>
+
+  <section id="panel-souvenir" role="tabpanel" aria-labelledby="tab-souvenir" hidden>
+    <div class="panel-head">
+      <div>
+        <h2>Souvenir</h2>
+        <p>La galerie de photos du site. La photo n°1 est celle du haut de la galerie. Ajoutez, recadrez ou supprimez des photos.</p>
+      </div>
+      <button class="btn btn-primary" type="button" id="add-photo-top">+ Ajouter une photo</button>
+    </div>
+    <p class="sort-hint"><strong>Changer l'ordre :</strong> maintenez une photo appuyée puis glissez-la à sa nouvelle place, ou utilisez les flèches ‹ › sur la photo, ou « Modifier » pour choisir une position.</p>
+    <ul class="photo-grid" id="photo-grid"></ul>
+  </section>
+
+  <div class="panel-foot"><button class="btn-link btn" type="button" id="reset">Remettre les photos et noms d'origine</button></div>
+</main>
+
+<input type="file" id="file-input" accept="image/*" hidden/>
+
+<!-- Edit a dish / a souvenir photo -->
+<dialog id="edit-dialog" aria-labelledby="edit-title">
+  <div class="dialog-body">
+    <h2 id="edit-title"></h2>
+    <label class="field" id="name-field" for="edit-name">Nom du plat
+      <input id="edit-name" type="text" maxlength="60" autocomplete="off"/>
+    </label>
+    <p class="form-error" id="edit-error" role="alert" hidden></p>
+    <label class="field" id="pos-field" for="edit-pos">Position dans la galerie
+      <select id="edit-pos"></select>
+    </label>
+    <div class="photo-edit">
+      <div class="photo-preview"><img id="edit-photo" alt=""/></div>
+      <div class="photo-edit-buttons">
+        <button class="btn btn-small" type="button" id="btn-crop">Recadrer / zoomer</button>
+        <button class="btn btn-small" type="button" id="btn-replace">Changer la photo</button>
+        <p class="hint">Formats : JPG, PNG ou WebP.</p>
+      </div>
+    </div>
+    <div class="dialog-actions">
+      <button class="btn btn-danger btn-small" type="button" id="btn-delete">Supprimer</button>
+      <span class="spacer"></span>
+      <button class="btn btn-small" type="button" id="btn-cancel">Annuler</button>
+      <button class="btn btn-primary btn-small" type="button" id="btn-save">Enregistrer</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- Crop / zoom -->
+<dialog class="crop-dialog" id="crop-dialog" aria-labelledby="crop-title">
+  <div class="dialog-body">
+    <h2 id="crop-title">Recadrer la photo</h2>
+    <div class="crop-ratios" id="crop-ratios" role="group" aria-label="Forme du cadre"></div>
+    <div class="crop-stage-wrap" id="crop-wrap">
+      <div class="crop-stage" id="crop-stage"><img class="crop-img" id="crop-img" alt="" draggable="false"/></div>
+    </div>
+    <div class="zoom-row">
+      <label for="crop-zoom">Zoom</label>
+      <input id="crop-zoom" type="range" min="0" max="100" value="0"/>
+    </div>
+    <p class="hint">Faites glisser la photo pour la placer, puis zoomez avec le curseur, la molette ou deux doigts.</p>
+    <p class="form-error" id="crop-error" role="alert" hidden></p>
+    <div class="dialog-actions">
+      <button class="btn btn-small" type="button" id="crop-cancel">Annuler</button>
+      <button class="btn btn-primary btn-small" type="button" id="crop-ok">Valider</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- Confirm -->
+<dialog id="confirm-dialog" aria-labelledby="confirm-text">
+  <div class="dialog-body">
+    <p class="confirm-text" id="confirm-text"></p>
+    <div class="dialog-actions">
+      <button class="btn btn-small" type="button" id="confirm-no">Annuler</button>
+      <button class="btn btn-danger btn-small" type="button" id="confirm-yes">Confirmer</button>
+    </div>
+  </div>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script src="assets/admin/admin.js"></script>
+</body>
+</html>
