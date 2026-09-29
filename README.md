@@ -120,10 +120,25 @@ Branché sur **Supabase** (projet `jnjyekeakikguumdjccf`) : base de données (ta
   (dossiers `dishes/` et `gallery/`) ; les photos jamais touchées depuis l'admin continuent de
   pointer vers leur fichier d'origine dans `assets/images/` (c'est ce que la base a été semée
   au départ) — les deux formes de chemin sont traitées pareil côté admin.
-- **`index.html` ne lit pas encore Supabase** : la page publique reste le HTML statique
-  actuel (galerie, carrousel des plats). Faire relire `index.html` depuis la base est une
-  étape distincte, volontairement pas encore faite pour ne pas risquer l'animation très
-  ajustée de ces sections — voir `NOTE-A-FAIRE-2026-09-19.md`.
+- **`index.html` lit maintenant Supabase** (dernier bloc `<script>` de la page, juste après les
+  scripts vendor) : "Nos créations" (les 6 plats, nom + photo, toujours 6 -- jamais de rotation
+  là) et "Souvenir" mettent à jour les `<img>`/textes déjà présents dans le HTML statique une
+  fois les données arrivées ; si Supabase est indisponible, vide, ou que les deux scripts
+  `assets/js/supabase.min.js`/`assets/admin/supabase-config.js` n'ont pas pu charger, tout est
+  englobé dans des `try/catch`/vérifications qui ne font rien dans ce cas -- le HTML statique
+  déjà dans la page (tel qu'il était à la dernière modification manuelle) continue de s'afficher
+  normalement, jamais de page cassée.
+  - **Galerie "Souvenir" : positions et tailles des photos ne changent jamais.** Tant qu'il y a
+    assez de photos pour remplir chaque emplacement (11 sur tablette/desktop : 1 solo + 2 rangées
+    de 5 ; 6 sur mobile, la 2ᵉ rangée étant masquée en CSS en dessous de 480px), chaque emplacement
+    affiche une photo, statique, comme avant. Dès qu'il y a PLUS de photos que d'emplacements
+    pour la taille d'écran en cours, la rotation se déclenche automatiquement (même mécanisme de
+    fondu que l'ancien diaporama mobile, désormais actif aussi sur tablette/desktop) : les
+    emplacements font défiler toutes les photos, environ 10 secondes chacune, sans jamais bouger
+    ni changer de taille.
+  - Les photos jamais retouchées depuis l'admin gardent leur `srcset` réactif (`-p-500`/`-p-800`)
+    reconstruit à partir du chemin ; celles ajoutées/remplacées depuis l'admin n'ont qu'un seul
+    fichier (~900px), donc un simple `src`.
 
 ## Audit
 
