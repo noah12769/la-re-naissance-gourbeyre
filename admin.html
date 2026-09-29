@@ -22,8 +22,6 @@
 </header>
 
 <main class="wrap">
-  <p class="notice"><strong>Connecté à Supabase.</strong> Chaque modification est enregistrée directement dans la base et le stockage du site — pas de bouton "publier" séparé.</p>
-
   <div class="tabs" role="tablist" aria-label="Sections du site">
     <button class="tab" role="tab" id="tab-creations" aria-controls="panel-creations" aria-selected="true" type="button">Nos créations <span id="count-creations"></span></button>
     <button class="tab" role="tab" id="tab-souvenir" aria-controls="panel-souvenir" aria-selected="false" tabindex="-1" type="button">Souvenir <span id="count-souvenir"></span></button>
@@ -50,8 +48,6 @@
     <p class="sort-hint"><strong>Changer l'ordre :</strong> maintenez une photo appuyée puis glissez-la à sa nouvelle place, ou utilisez les flèches ‹ › sur la photo, ou « Modifier » pour choisir une position.</p>
     <ul class="photo-grid" id="photo-grid"></ul>
   </section>
-
-  <div class="panel-foot"><button class="btn-link btn" type="button" id="reset">Recharger depuis Supabase</button></div>
 </main>
 
 <input type="file" id="file-input" accept="image/*" hidden/>

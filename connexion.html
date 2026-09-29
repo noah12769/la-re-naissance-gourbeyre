@@ -14,7 +14,6 @@
 <body class="login-body">
 <main class="login-card">
   <h1>Connexion</h1>
-  <p>Espace réservé à la gestion des photos du site.</p>
   <form id="login-form" novalidate>
     <label class="field" for="password">Mot de passe
       <input id="password" name="password" type="password" autocomplete="current-password" required autofocus/>
@@ -23,6 +22,12 @@
     <button class="btn btn-primary" type="submit" style="margin-top:1rem;width:100%">Se connecter</button>
   </form>
   <button class="btn-link btn" type="button" id="forgot-link" style="margin-top:0.25rem">Mot de passe oublié ?</button>
+  <form id="forgot-form" novalidate hidden style="margin-top:0.5rem">
+    <label class="field" for="forgot-email">Adresse email du compte
+      <input id="forgot-email" type="email" autocomplete="email" required/>
+    </label>
+    <button class="btn btn-small" type="submit" style="margin-top:0.5rem;width:100%">Envoyer le lien</button>
+  </form>
   <p class="hint" id="forgot-status" role="status" hidden></p>
   <div class="login-back">
     <a class="btn" href="index.html">← Retour au site</a>
@@ -69,21 +74,53 @@
   });
   input.addEventListener('input', function () { error.hidden = true; });
 
-  // "Mot de passe oublié" -- the admin email is fixed (ADMIN_EMAIL above), so there's
-  // nothing to type: one click asks Supabase to send a reset link to that address.
-  // Supabase itself rate-limits this (one email per address per short window), so a
-  // second click right after the first is expected to silently do nothing new.
+  // "Mot de passe oublié" -- deliberately asks for the email rather than firing off the
+  // (fixed) admin address on a bare click: that would let anyone landing on this page
+  // trigger a reset email with no proof they even know the account exists. Typing the
+  // address doesn't let anyone learn whether it's correct either -- resetPasswordForEmail
+  // replies the same way regardless (Supabase's own anti-enumeration behaviour), it only
+  // actually delivers a link when the address matches the real admin account.
   var forgotLink = document.getElementById('forgot-link');
+  var forgotForm = document.getElementById('forgot-form');
+  var forgotEmail = document.getElementById('forgot-email');
   var forgotStatus = document.getElementById('forgot-status');
   forgotLink.addEventListener('click', function () {
-    forgotLink.disabled = true;
-    client.auth.resetPasswordForEmail(ADMIN_EMAIL, {
+    forgotLink.hidden = true;
+    forgotForm.hidden = false;
+    forgotEmail.focus();
+  });
+  // fetch() has no built-in timeout -- if the network or Supabase itself ever just never
+  // answers (rather than replying with a clean error), this call would otherwise hang the
+  // button on "Envoi..." forever with no way out for the person but reloading the page.
+  function withTimeout(promise, ms) {
+    return new Promise(function (resolve) {
+      var settled = false;
+      var timer = setTimeout(function () {
+        if (!settled) { settled = true; resolve({ error: { message: 'timeout' } }); }
+      }, ms);
+      promise.then(function (res) {
+        if (!settled) { settled = true; clearTimeout(timer); resolve(res); }
+      });
+    });
+  }
+
+  forgotForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var sendBtn = forgotForm.querySelector('button[type="submit"]');
+    sendBtn.disabled = true;
+    sendBtn.textContent = 'Envoi…';
+    withTimeout(client.auth.resetPasswordForEmail(forgotEmail.value, {
       redirectTo: location.origin + '/reinitialiser-mot-de-passe.html'
-    }).then(function (res) {
+    }), 15000).then(function (res) {
       forgotStatus.hidden = false;
-      forgotStatus.textContent = res.error
-        ? "L'envoi a échoué. Réessayez dans une minute."
-        : "Un lien de réinitialisation a été envoyé à l'adresse admin enregistrée.";
+      if (res.error) {
+        forgotStatus.textContent = "L'envoi a échoué. Réessayez dans une minute.";
+        sendBtn.disabled = false;
+        sendBtn.textContent = 'Envoyer le lien';
+      } else {
+        forgotStatus.textContent = 'Si cette adresse correspond à un compte, un lien de réinitialisation vient de lui être envoyé.';
+        forgotForm.hidden = true;
+      }
     });
   });
 })();

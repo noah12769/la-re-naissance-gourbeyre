@@ -761,18 +761,6 @@
     client.auth.signOut().then(function () { location.href = 'connexion.html'; });
   });
 
-  $('reset').addEventListener('click', function () {
-    confirmDialog('Recharger les plats et les photos depuis Supabase ? Toute modification non enregistrée dans une fenêtre ouverte sera perdue.', 'Recharger').then(function (ok) {
-      if (!ok) return;
-      loadData().then(function () {
-        renderAll();
-        toast('Données rechargées depuis Supabase.');
-      }).catch(function (err) {
-        toast('Impossible de recharger : ' + errorMessage(err), true);
-      });
-    });
-  });
-
   /* -------------------------------------------------------------- startup */
 
   // Gate on a real signed-in session (Supabase Auth) before loading or showing anything.
