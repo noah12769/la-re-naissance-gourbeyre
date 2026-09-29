@@ -399,9 +399,7 @@ img[alt="Steak de lambi"] { object-position: 50% 78%; }
   /* Oak's own IX2 script normally stamps an initial pixel size onto this block before any
      scroll happens; without it, the CSS alone is circular (width/height both percentage,
      each waiting on the other) and the whole photo cluster collapses to 0x0 -- invisible.
-     Giving the block a real height breaks the circularity. Images: height now fixed, width
-     auto, so each photo's own rectangle follows its real aspect ratio instead of a forced
-     crop -- portrait and landscape photos look correct without cropping.
+     Giving the block a real height breaks the circularity.
      No longer vh-clamped: with .gallery-section free to grow (see above) there's no longer
      any reason to shrink the photos to force them into one screen -- explicitly asked for,
      the photos were looking too small. Pure width-based sizing instead (like before that
@@ -411,7 +409,13 @@ img[alt="Steak de lambi"] { object-position: 50% 78%; }
      screen size): same fan layout, same spacing below the first row as the first row has
      below the heading. */
   .gallery-image-block._2nd { display: flex; margin-top: 24px !important; }
-  .gallery-image { width: auto !important; height: 100% !important; object-fit: contain !important; }
+  .gallery-image { width: auto !important; height: 100% !important; object-fit: cover !important; }
+  /* Row frames (portrait 3:4) and the top frame (landscape 4:3) keep a fixed shape on
+     desktop/tablet too, same as on mobile -- width follows the frame's fixed height via
+     aspect-ratio, and object-fit:cover crops each photo to fill that shape completely (matches
+     the "au plus simple" rule: any photo adapts automatically to whichever frame it lands in). */
+  .gallery-image-block:not(._solo) .gallery-image { aspect-ratio: 3 / 4; }
+  .gallery-image-block._solo .gallery-image { aspect-ratio: 4 / 3; }
   /* Oak's own .gallery-block relies on justify-content:space-between to spread the heading
      and the photo block across a fixed 100vh -- now that the section's padding-top has grown
      (matching the reservation section's gap), space-between stretched that into a huge gap
@@ -826,7 +830,10 @@ img[alt="Steak de lambi"] { object-position: 50% 78%; }
    photos below are 3:4). Oak's 65px row gap is cancelled down to 10px. */
 @media screen and (max-width: 479px) {
   .gallery-image-block._solo { margin-bottom: -55px; }
-  .gallery-image-block._solo .gallery-image { width: 80% !important; aspect-ratio: 4 / 3 !important; }
+  /* Matches the row grid's own actual width exactly: two 45%-wide columns plus their 10px gap
+     (Oak's own values, see .gallery-image._1.._5 above) = 90% + 10px, not the full 100% of the
+     shared container -- a plain 100% here made the top frame overflow past the row grid's edges. */
+  .gallery-image-block._solo .gallery-image { width: calc(90% + 10px) !important; aspect-ratio: 4 / 3 !important; }
 }
 /* Gallery photos are lazy-loaded, so on arrival they used to download while already on screen
    and show up as thin horizontal strips (half-decoded image) in the middle of the animation.
@@ -1716,7 +1723,7 @@ img[alt="Steak de lambi"] { object-position: 50% 78%; }
     // legacy /assets/images/... path still has its hand-made -p-500/-p-800 siblings, so those
     // stay responsive via srcset exactly like the original static markup did.
     function sourcesFor(imagePath) {
-      if (/^https?:\/\//.test(imagePath)) return { src: imagePath, srcset: null, sizes: null };
+      if (/^(https?:|data:)/.test(imagePath)) return { src: imagePath, srcset: null, sizes: null };
       var p500 = imagePath.replace(/(\.[a-z0-9]+)$/i, '-p-500$1');
       var p800 = imagePath.replace(/(\.[a-z0-9]+)$/i, '-p-800$1');
       return { src: p500, srcset: p500 + ' 500w, ' + p800 + ' 800w', sizes: '(max-width: 767px) 45vw, 300px' };
@@ -1745,30 +1752,39 @@ img[alt="Steak de lambi"] { object-position: 50% 78%; }
     //
     // Two fixed frame shapes never change: the 10 row frames (3:4 portrait) and the 1 top frame
     // (4:3 landscape). object-fit:cover adapts whichever photo lands in a slot to that slot's
-    // shape -- no per-photo classification, a single pool of photos rotates through all the slots
-    // in document order (solo, then row 1's five, then row 2's five).
+    // shape -- but a portrait photo forced into the landscape top frame would lose too much
+    // (scaled up until its width fills the frame, cropping away most of its height), so that one
+    // frame only draws from photos shaped landscape/near-square; the 10 row frames take any photo,
+    // unrestricted. TOP_MIN_RATIO is picked so the site's classic near-square group photo
+    // (ratio ~0.95) still qualifies, while a typical 3:4 portrait photo (ratio 0.75, most of the
+    // real gallery) does not.
     function isTiny() { return window.matchMedia('(max-width: 479px)').matches; }
+    var TOP_MIN_RATIO = 0.85;
+    function isTopEligible(photo) { return !!(photo.width && photo.height && photo.width / photo.height >= TOP_MIN_RATIO); }
     var soloSlot = document.querySelector('.gallery-image-block._solo .gallery-image');
-    // Row 2 is display:none below 480px (see CSS), so only the first 5 row slots (6 with the
-    // solo one) are ever visible there.
+    // Row 2 is display:none below 480px (see CSS), so only the first 5 row slots are ever visible
+    // there (6 with the solo one).
     var rowSlots = Array.prototype.slice.call(document.querySelectorAll('.gallery-image-block:not(._solo) .gallery-image'));
-    var allSlots = soloSlot ? [soloSlot].concat(rowSlots) : rowSlots;
     var bar = document.querySelector('.gallery-progress-fill');
     var barEl = document.querySelector('.gallery-progress');
     var FADE_MS = 1800; // matches .gallery-fade-overlay's own CSS transition duration
-    var CYCLE_MS = 10000;
-    var photos = null; // set once fetched
-    var offset = 0, timer = null;
+    var CYCLE_MS = 8000;
+    var topPool = null, rowPool = null; // set once fetched
+    var topOffset = 0, rowOffset = 0, timer = null;
 
-    function activeSlots() { return isTiny() ? allSlots.slice(0, 6) : allSlots; }
+    function activeRowSlots() { return isTiny() ? rowSlots.slice(0, 5) : rowSlots; }
 
-    // One photo per slot, in order; a slot beyond how many photos there are is hidden rather
+    // One photo per slot, in order; a slot beyond how many photos its pool has is hidden rather
     // than left showing a stale/broken image.
-    function fillStatic() {
-      for (var i = 0; i < allSlots.length; i++) {
-        if (photos[i]) { allSlots[i].style.display = ''; applyPhoto(allSlots[i], photos[i].image_path, photos[i].alt); }
-        else { allSlots[i].style.display = 'none'; }
+    function fillGroup(slots, pool) {
+      for (var i = 0; i < slots.length; i++) {
+        if (pool[i]) { slots[i].style.display = ''; applyPhoto(slots[i], pool[i].image_path, pool[i].alt); }
+        else { slots[i].style.display = 'none'; }
       }
+    }
+    function fillStatic() {
+      if (soloSlot) fillGroup([soloSlot], topPool);
+      fillGroup(rowSlots, rowPool);
     }
 
     // Same crossfade-overlay technique the mobile slideshow used to do on its own, now driven by
@@ -1804,9 +1820,12 @@ img[alt="Steak de lambi"] { object-position: 50% 78%; }
       }
       return nextOffset;
     }
+    // One shared clock drives both groups so everything visibly changes together, even though
+    // each pulls from its own pool (and either one alone may have too few photos to need moving).
     function advance() {
-      var slots = activeSlots();
-      if (photos.length > slots.length) offset = crossfadeGroup(slots, photos, offset);
+      if (soloSlot && topPool.length > 1) topOffset = crossfadeGroup([soloSlot], topPool, topOffset);
+      var slots = activeRowSlots();
+      if (rowPool.length > slots.length) rowOffset = crossfadeGroup(slots, rowPool, rowOffset);
     }
     function restartBar() {
       if (!bar) return;
@@ -1826,19 +1845,22 @@ img[alt="Steak de lambi"] { object-position: 50% 78%; }
       if (barEl) barEl.classList.remove('is-visible');
     }
     // Re-evaluated on load and on every resize (phone rotation, window resize across the 480px
-    // line): only rotate (and only then show the countdown bar) once there are genuinely more
-    // photos than slots for the current screen -- otherwise a plain static fill, same as the
-    // original markup, and no bar since nothing is actually about to change.
+    // line): only rotate (and only then show the countdown bar) once at least one of the two
+    // pools genuinely has more photos than its current slots -- otherwise a plain static fill,
+    // same as the original markup, and no bar since nothing is actually about to change.
     function sync() {
-      if (!photos) return;
-      if (photos.length > activeSlots().length) { if (!timer) startCycle(); }
+      if (!rowPool) return;
+      var needsRotation = (soloSlot && topPool.length > 1) || rowPool.length > activeRowSlots().length;
+      if (needsRotation) { if (!timer) startCycle(); }
       else { stopCycle(); fillStatic(); }
     }
 
-    if (allSlots.length) {
+    if (soloSlot || rowSlots.length) {
       client.from('gallery_photos').select('*').order('position').then(function (res) {
         if (res.error || !res.data || !res.data.length) return; // Supabase down/empty: keep the static HTML
-        photos = res.data;
+        rowPool = res.data; // every photo rotates through the 10 row frames, unrestricted
+        topPool = res.data.filter(isTopEligible);
+        if (!topPool.length) topPool = res.data.slice(0, 1); // never leave the top frame empty
         fillStatic();
         sync();
         window.addEventListener('resize', sync);

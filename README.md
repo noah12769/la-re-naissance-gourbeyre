@@ -128,23 +128,28 @@ Branché sur **Supabase** (projet `jnjyekeakikguumdjccf`) : base de données (ta
   englobé dans des `try/catch`/vérifications qui ne font rien dans ce cas -- le HTML statique
   déjà dans la page (tel qu'il était à la dernière modification manuelle) continue de s'afficher
   normalement, jamais de page cassée.
-  - **Galerie "Souvenir" : positions et tailles des cadres ne changent jamais** (en dessous de
-    480px, où le layout est une vraie grille CSS à cadres fixes -- voir plus bas pour le layout
-    "en éventail" au-dessus de 480px, qui n'a jamais forcé de cadre). 11 cadres au total sur
-    tablette/desktop (1 en haut + 2 rangées de 5), 6 sur mobile (la 2ᵉ rangée est masquée en CSS
-    en dessous de 480px). Tant qu'il y a assez de photos pour remplir chaque cadre, chacun affiche
-    une photo statique, comme avant. Dès qu'il y a PLUS de photos que de cadres pour la taille
-    d'écran en cours, la rotation se déclenche automatiquement (même mécanisme de fondu que
-    l'ancien diaporama mobile, actif sur tous les formats) : les cadres font défiler toutes les
-    photos, une seule liste unique dans l'ordre, environ 10 secondes chacune, sans jamais bouger
-    ni changer de taille. Une barre de progression s'affiche dès qu'une rotation est active, et
-    reste invisible sinon.
-  - **Sur mobile (<480px), le cadre du haut est en 4:3 (paysage), les 10 cadres de rangée sont en
-    3:4 (portrait) — ces dimensions ne changent jamais.** Chaque photo s'ajuste automatiquement au
-    cadre où elle atterrit via `object-fit: cover` (recadrage centré) : pas de classification par
-    forme, une seule liste de photos qui tourne dans tous les cadres, au plus simple. Au-dessus de
-    480px, le layout "en éventail" garde son fonctionnement d'origine (chaque photo garde sa
-    propre forme, hauteur commune, pas de recadrage) -- il n'a jamais eu besoin d'un cadre fixe.
+  - **Galerie "Souvenir" : positions et tailles des cadres ne changent jamais**, sur aucun format.
+    11 cadres au total sur tablette/desktop (1 en haut + 2 rangées de 5), 6 sur mobile (la 2ᵉ
+    rangée est masquée en CSS en dessous de 480px). Le cadre du haut est en 4:3 (paysage), les 10
+    cadres de rangée sont en 3:4 (portrait). Chaque photo s'ajuste automatiquement au cadre où elle
+    atterrit via `object-fit: cover` (recadrage centré, sur tous les formats d'écran). Tant qu'il y
+    a assez de photos pour remplir chaque cadre, chacun affiche une photo statique. Dès qu'il y a
+    PLUS de photos que de cadres, la rotation se déclenche automatiquement (même mécanisme de fondu
+    que l'ancien diaporama mobile, actif sur tous les formats) : les cadres font défiler les
+    photos, environ 8 secondes chacune, tous en même temps, sans jamais bouger ni changer de
+    taille. Une barre de progression s'affiche dès qu'une rotation est active, et reste invisible
+    sinon.
+  - **Le cadre du haut (paysage) ne montre que des photos assez "larges"** — une photo trop
+    étroite/haute (portrait marqué), forcée dans ce cadre paysage via `object-fit: cover`, serait
+    recadrée en perdant une grande partie de son contenu (agrandie jusqu'à ce que sa largeur
+    remplisse le cadre, ce qui coupe l'essentiel de sa hauteur). Une photo n'est donc éligible au
+    cadre du haut que si `largeur / hauteur >= 0.85` (`TOP_MIN_RATIO` dans `index.html`) — un
+    seuil choisi pour que la photo de groupe historique (ratio ~0,95, quasi carrée) reste éligible,
+    tout en excluant les photos portraits classiques (ratio 0,75, la plupart de la galerie
+    actuelle). Les 10 cadres de rangée, eux, acceptent n'importe quelle photo sans restriction — y
+    compris celles éligibles au cadre du haut, qui peuvent apparaître aux deux endroits. Si aucune
+    photo n'est éligible au cadre du haut (ne devrait pas arriver en pratique), la première photo
+    de la liste y est affichée par défaut plutôt que de laisser le cadre vide.
   - Les photos jamais retouchées depuis l'admin gardent leur `srcset` réactif (`-p-500`/`-p-800`)
     reconstruit à partir du chemin ; celles ajoutées/remplacées depuis l'admin n'ont qu'un seul
     fichier (~900px), donc un simple `src`.
@@ -155,9 +160,9 @@ Branché sur **Supabase** (projet `jnjyekeakikguumdjccf`) : base de données (ta
     ajoutée, pour un ajustement manuel optionnel (par ex. recentrer le sujet) -- jamais requis.
     Les plats de "Nos créations" gardent eux le recadrage classique (portrait/carré/paysage) au
     moment de changer leur photo, leur cadre carrousel étant, lui, réellement à forme fixe.
-    La table `gallery_photos` garde ses colonnes `width`/`height` (plus utilisées par
-    `index.html` depuis cette simplification -- inoffensif de les laisser, pas retiré pour éviter
-    une migration destructive sans besoin réel).
+    Dans tous les cas (ajout, remplacement, recadrage manuel), `admin.js` enregistre les
+    dimensions réelles du fichier exporté dans les colonnes `width`/`height` de `gallery_photos`
+    -- c'est ce que `index.html` utilise pour la règle du cadre du haut ci-dessus.
 
 ## Audit
 
