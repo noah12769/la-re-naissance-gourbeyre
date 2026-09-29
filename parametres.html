@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
+<title>Paramètres — La Re-Naissance</title>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<meta name="robots" content="noindex, nofollow"/>
+<link href="assets/images/favicon-32.webp" rel="icon" type="image/webp"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="anonymous" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Karantina:wght@400;700&amp;family=DM+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="assets/admin/admin.css" rel="stylesheet"/>
+</head>
+<body>
+<header class="app-header">
+  <h1 class="app-title">La Re-Naissance <span>· paramètres</span></h1>
+  <div class="app-header-actions">
+    <a class="btn btn-small" href="admin.html">← Gestion du site</a>
+    <button class="btn btn-small" type="button" id="logout">Déconnexion</button>
+  </div>
+</header>
+
+<main class="wrap" style="max-width:32rem">
+  <div class="panel-head">
+    <div>
+      <h2>Compte admin</h2>
+      <p>Connecté en tant que <strong id="account-email">…</strong>.</p>
+    </div>
+  </div>
+
+  <form id="password-form" novalidate>
+    <label class="field" for="current-password">Mot de passe actuel
+      <input id="current-password" type="password" autocomplete="current-password" required/>
+    </label>
+    <label class="field" for="new-password" style="margin-top:0.75rem">Nouveau mot de passe
+      <input id="new-password" type="password" autocomplete="new-password" minlength="8" required/>
+    </label>
+    <label class="field" for="new-password-confirm" style="margin-top:0.75rem">Confirmer le nouveau mot de passe
+      <input id="new-password-confirm" type="password" autocomplete="new-password" minlength="8" required/>
+    </label>
+    <p class="hint" style="margin-top:0.5rem">8 caractères minimum.</p>
+    <p class="form-error" id="password-error" role="alert" hidden></p>
+    <div class="dialog-actions" style="justify-content:flex-start;margin-top:1rem">
+      <button class="btn btn-primary" type="submit">Changer le mot de passe</button>
+    </div>
+  </form>
+
+  <p class="notice" style="margin-top:2rem">
+    L'adresse email du compte admin est fixée dans le code du site (<code>connexion.html</code>)
+    et ne se change pas depuis cette page — contactez Lumea pour en changer. En cas de mot de
+    passe perdu, utilisez « Mot de passe oublié » sur la page de connexion : un lien est envoyé
+    à cette adresse.
+  </p>
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script src="assets/js/supabase.min.js"></script>
+<script src="assets/admin/supabase-config.js"></script>
+<script>
+(function () {
+  var client = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+
+  function toast(message, isError) {
+    var t = document.getElementById('toast');
+    t.textContent = message;
+    t.classList.toggle('is-error', !!isError);
+    t.classList.add('is-visible');
+    setTimeout(function () { t.classList.remove('is-visible'); }, isError ? 6000 : 3200);
+  }
+
+  // Same gate as admin.html: only reachable with a real, signed-in Supabase session.
+  client.auth.getSession().then(function (res) {
+    if (!res.data.session) { location.replace('connexion.html'); return; }
+    document.getElementById('account-email').textContent = res.data.session.user.email;
+  }).catch(function () { location.replace('connexion.html'); });
+
+  client.auth.onAuthStateChange(function (event) {
+    if (event === 'SIGNED_OUT') location.replace('connexion.html');
+  });
+
+  document.getElementById('logout').addEventListener('click', function () {
+    client.auth.signOut().then(function () { location.href = 'connexion.html'; });
+  });
+
+  var form = document.getElementById('password-form');
+  var error = document.getElementById('password-error');
+  var currentPw = document.getElementById('current-password');
+  var newPw = document.getElementById('new-password');
+  var confirmPw = document.getElementById('new-password-confirm');
+  var submitBtn = form.querySelector('button[type="submit"]');
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    error.hidden = true;
+
+    if (newPw.value.length < 8) {
+      error.textContent = 'Le nouveau mot de passe doit faire au moins 8 caractères.';
+      error.hidden = false;
+      newPw.focus();
+      return;
+    }
+    if (newPw.value !== confirmPw.value) {
+      error.textContent = 'Les deux mots de passe ne correspondent pas.';
+      error.hidden = false;
+      confirmPw.focus();
+      return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Vérification…';
+
+    // updateUser() alone would accept a new password just from the current (already
+    // signed-in) session, without proving the person actually knows the CURRENT password --
+    // anyone left signed in on a shared or unlocked device could silently lock the real
+    // admin out. Re-checking the current password first (a second, throwaway sign-in call)
+    // closes that gap before touching anything.
+    client.auth.signInWithPassword({ email: 'la.re.naissance97113@gmail.com', password: currentPw.value }).then(function (res) {
+      if (res.error) {
+        var e = new Error('current-password-wrong');
+        e.isCurrentPasswordError = true;
+        throw e;
+      }
+      submitBtn.textContent = 'Enregistrement…';
+      return client.auth.updateUser({ password: newPw.value });
+    }).then(function (res) {
+      if (res.error) throw res.error;
+      form.reset();
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Changer le mot de passe';
+      toast('Mot de passe changé.');
+    }).catch(function (err) {
+      error.textContent = err && err.isCurrentPasswordError
+        ? 'Mot de passe actuel incorrect.'
+        : ((err && err.message) || "Le changement a échoué. Réessayez.");
+      error.hidden = false;
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Changer le mot de passe';
+    });
+  });
+})();
+</script>
+</body>
+</html>

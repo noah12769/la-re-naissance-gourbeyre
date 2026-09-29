@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
+<title>Nouveau mot de passe — La Re-Naissance</title>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<meta name="robots" content="noindex, nofollow"/>
+<link href="assets/images/favicon-32.webp" rel="icon" type="image/webp"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="anonymous" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Karantina:wght@400;700&amp;family=DM+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="assets/admin/admin.css" rel="stylesheet"/>
+</head>
+<body class="login-body">
+<main class="login-card">
+  <h1>Nouveau mot de passe</h1>
+  <p id="intro">Vérification du lien…</p>
+
+  <form id="reset-form" novalidate hidden>
+    <label class="field" for="password">Nouveau mot de passe
+      <input id="password" type="password" autocomplete="new-password" minlength="8" required/>
+    </label>
+    <label class="field" for="password-confirm" style="margin-top:0.75rem">Confirmer le mot de passe
+      <input id="password-confirm" type="password" autocomplete="new-password" minlength="8" required/>
+    </label>
+    <p class="form-error" id="reset-error" role="alert" hidden></p>
+    <button class="btn btn-primary" type="submit" style="margin-top:1rem;width:100%">Enregistrer le nouveau mot de passe</button>
+  </form>
+
+  <div class="login-back" id="expired-block" hidden>
+    <a class="btn btn-primary" href="connexion.html">Retour à la connexion</a>
+  </div>
+  <div class="login-back">
+    <a class="btn" href="index.html">← Retour au site</a>
+  </div>
+</main>
+<script src="assets/js/supabase.min.js"></script>
+<script src="assets/admin/supabase-config.js"></script>
+<script>
+/* Reached only by clicking the link Supabase emails from resetPasswordForEmail() (see
+   connexion.html). supabase-js parses that link's token itself as soon as the client is
+   created (detectSessionInUrl, on by default) and turns it into a real signed-in session
+   before getSession() below resolves -- there is nothing here to parse by hand, for either
+   of Supabase's two link formats (?code=... or #access_token=...). If someone opens this
+   page without going through that link, there's simply no session and we say so instead of
+   showing a form that could never work. */
+(function () {
+  var client = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+  var intro = document.getElementById('intro');
+  var form = document.getElementById('reset-form');
+  var expiredBlock = document.getElementById('expired-block');
+  var error = document.getElementById('reset-error');
+  var pass = document.getElementById('password');
+  var confirm = document.getElementById('password-confirm');
+  var submitBtn = form.querySelector('button[type="submit"]');
+
+  client.auth.getSession().then(function (res) {
+    if (res.data.session) {
+      intro.textContent = 'Choisissez un nouveau mot de passe pour le compte admin.';
+      form.hidden = false;
+      pass.focus();
+    } else {
+      intro.textContent = "Ce lien n'est plus valable : il a peut-être déjà été utilisé, ou a expiré (il n'est valable qu'un temps limité). Redemandez un lien depuis la page de connexion.";
+      expiredBlock.hidden = false;
+    }
+  });
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    error.hidden = true;
+    if (pass.value.length < 8) {
+      error.textContent = 'Le mot de passe doit faire au moins 8 caractères.';
+      error.hidden = false;
+      pass.focus();
+      return;
+    }
+    if (pass.value !== confirm.value) {
+      error.textContent = 'Les deux mots de passe ne correspondent pas.';
+      error.hidden = false;
+      confirm.focus();
+      return;
+    }
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Enregistrement…';
+    client.auth.updateUser({ password: pass.value }).then(function (res) {
+      if (res.error) throw res.error;
+      // Already signed in via the session the reset link just created -- straight to the
+      // dashboard, no reason to make them log in again right after choosing a password.
+      location.href = 'admin.html';
+    }).catch(function (err) {
+      error.textContent = (err && err.message) || "L'enregistrement a échoué. Réessayez.";
+      error.hidden = false;
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Enregistrer le nouveau mot de passe';
+    });
+  });
+})();
+</script>
+</body>
+</html>

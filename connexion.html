@@ -22,6 +22,8 @@
     <p class="form-error" id="login-error" role="alert" hidden>Mot de passe incorrect.</p>
     <button class="btn btn-primary" type="submit" style="margin-top:1rem;width:100%">Se connecter</button>
   </form>
+  <button class="btn-link btn" type="button" id="forgot-link" style="margin-top:0.25rem">Mot de passe oublié ?</button>
+  <p class="hint" id="forgot-status" role="status" hidden></p>
   <div class="login-back">
     <a class="btn" href="index.html">← Retour au site</a>
     <small>Pas besoin de vous connecter pour visiter le site.</small>
@@ -66,6 +68,24 @@
     });
   });
   input.addEventListener('input', function () { error.hidden = true; });
+
+  // "Mot de passe oublié" -- the admin email is fixed (ADMIN_EMAIL above), so there's
+  // nothing to type: one click asks Supabase to send a reset link to that address.
+  // Supabase itself rate-limits this (one email per address per short window), so a
+  // second click right after the first is expected to silently do nothing new.
+  var forgotLink = document.getElementById('forgot-link');
+  var forgotStatus = document.getElementById('forgot-status');
+  forgotLink.addEventListener('click', function () {
+    forgotLink.disabled = true;
+    client.auth.resetPasswordForEmail(ADMIN_EMAIL, {
+      redirectTo: location.origin + '/reinitialiser-mot-de-passe.html'
+    }).then(function (res) {
+      forgotStatus.hidden = false;
+      forgotStatus.textContent = res.error
+        ? "L'envoi a échoué. Réessayez dans une minute."
+        : "Un lien de réinitialisation a été envoyé à l'adresse admin enregistrée.";
+    });
+  });
 })();
 </script>
 </body>

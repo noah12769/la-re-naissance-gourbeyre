@@ -106,6 +106,16 @@ Branché sur **Supabase** (projet `jnjyekeakikguumdjccf`) : base de données (ta
   Supabase lui-même (Authentication → Users dans le tableau de bord) — l'email est en dur
   dans `connexion.html` (`ADMIN_EMAIL`, un seul compte partagé), seul le mot de passe est
   saisi dans le formulaire.
+- **Mot de passe oublié** (`connexion.html`, bouton) et **`reinitialiser-mot-de-passe.html`** :
+  envoient/traitent le lien de réinitialisation standard de Supabase Auth. ⚠️ Nécessite un
+  réglage dans le tableau de bord, à faire une fois : **Authentication → URL Configuration** →
+  ajouter `https://la-re-naissance.com/reinitialiser-mot-de-passe.html` aux "Redirect URLs"
+  (sinon Supabase refuse la redirection après le clic sur le lien reçu par email).
+- **`parametres.html`** : accessible une fois connecté (lien dans l'en-tête de `admin.html`),
+  permet de changer le mot de passe admin. Redemande le mot de passe ACTUEL avant d'accepter le
+  nouveau (un appel `signInWithPassword` de vérification) — sans ça, `updateUser()` seul
+  accepterait un nouveau mot de passe depuis une session déjà ouverte sans jamais vérifier que
+  la personne connaît l'ancien, ce qui est risqué sur un appareil partagé resté connecté.
 - Chaque photo ajoutée/remplacée depuis l'admin est uploadée dans le bucket `site-media`
   (dossiers `dishes/` et `gallery/`) ; les photos jamais touchées depuis l'admin continuent de
   pointer vers leur fichier d'origine dans `assets/images/` (c'est ce que la base a été semée
