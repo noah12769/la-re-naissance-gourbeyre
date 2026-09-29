@@ -1743,21 +1743,29 @@ img[alt="Steak de lambi"] { object-position: 50% 78%; }
 
     /* ---- Souvenir: variable count, static fill or rotation depending on how many there are ---- */
     //
-    // The top frame is a different shape from the other 10 (near-square "photo entière" vs.
-    // their 3:4 crop) and always stays put -- what rotates THROUGH it is what's restricted: only
-    // photos shaped for it. A photo's stored width/height (captured once, when it was cropped in
-    // the admin) says which family it belongs to -- exactly 3:4 (what the admin's cropper always
-    // exports for a row-shaped crop) goes in the row pool, anything else (square, landscape, or
-    // whatever a "Photo entière" crop's own original shape was) goes in the top-frame pool.
-    // A photo with no stored dimensions (shouldn't happen once every row has been through the
-    // admin at least once) defaults to the row pool -- the common case, and the safe one: a
-    // slightly-off crop in a row frame is far less visible than a wrongly-shaped one alone at
-    // the top.
+    // Two fixed frame shapes never change: the 10 row frames (3:4 portrait) and the 1 top frame
+    // (near-square, 858:903). Every photo displays via object-fit:cover, which always fills its
+    // frame completely -- the only question is HOW MUCH of the photo survives that crop. For a
+    // photo of ratio r going into a frame of ratio f, the fraction of the photo that stays visible
+    // is min(r/f, f/r): 1.0 means a perfect match (nothing lost), a value near 0 means almost all
+    // of it gets cropped away. A photo goes wherever that fraction is higher (crops less), and if
+    // it's too low for BOTH frames, the photo doesn't fit either one well enough to look right --
+    // it's left out of the rotation entirely rather than forced somewhere it'll look badly cropped
+    // or oddly zoomed. A photo with no stored dimensions (shouldn't happen once it's been through
+    // the admin at least once) defaults to the row frame -- today's common case, and the safe one.
     function isTiny() { return window.matchMedia('(max-width: 479px)').matches; }
-    var ROW_RATIO = 3 / 4, ROW_TOLERANCE = 0.03;
-    function isRowShaped(photo) {
-      if (!photo.width || !photo.height) return true;
-      return Math.abs(photo.width / photo.height - ROW_RATIO) <= ROW_TOLERANCE;
+    var ROW_RATIO = 3 / 4;
+    var SOLO_RATIO = 858 / 903;
+    var MIN_VISIBLE_FRACTION = 0.45; // below this for BOTH frames, the photo fits neither well
+    function visibleFraction(photoRatio, frameRatio) { return Math.min(photoRatio / frameRatio, frameRatio / photoRatio); }
+    // 'row' | 'solo' | 'exclude'
+    function classify(photo) {
+      if (!photo.width || !photo.height) return 'row';
+      var ratio = photo.width / photo.height;
+      var rowFit = visibleFraction(ratio, ROW_RATIO);
+      var soloFit = visibleFraction(ratio, SOLO_RATIO);
+      if (rowFit < MIN_VISIBLE_FRACTION && soloFit < MIN_VISIBLE_FRACTION) return 'exclude';
+      return rowFit >= soloFit ? 'row' : 'solo';
     }
 
     var soloSlot = document.querySelector('.gallery-image-block._solo .gallery-image');
@@ -1860,7 +1868,13 @@ img[alt="Steak de lambi"] { object-position: 50% 78%; }
       client.from('gallery_photos').select('*').order('position').then(function (res) {
         if (res.error || !res.data || !res.data.length) return; // Supabase down/empty: keep the static HTML
         pools = { solo: [], row: [] };
-        res.data.forEach(function (photo) { (isRowShaped(photo) ? pools.row : pools.solo).push(photo); });
+        // 'exclude'd photos (fit neither frame well) simply take no part in either rotation --
+        // they still exist in the admin, just not shown here until re-cropped to a better shape.
+        res.data.forEach(function (photo) {
+          var c = classify(photo);
+          if (c === 'row') pools.row.push(photo);
+          else if (c === 'solo') pools.solo.push(photo);
+        });
         if (!pools.solo.length) pools.solo = pools.row.slice(0, 1); // never leave the top frame empty
         fillStatic();
         sync();
