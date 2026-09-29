@@ -305,11 +305,16 @@
       // encode webp, toBlob silently gives back a PNG instead (blob.type says so) rather than
       // erroring -- extFromMime() picks the right file extension from that automatically.
       canvas.toBlob(function (blob) {
-        cb({ dataUrl: canvas.toDataURL('image/png'), blob: blob });
+        // width/height of the actual exported file, not the on-screen preview size -- this is
+        // what the public site later uses to tell a "photo entière" (goes in the one big frame
+        // at the top of the gallery) from a 3:4-cropped one (goes in one of the 10 row frames):
+        // a plain aspect-ratio check on width/height, no separate "which kind is this" field to
+        // keep in sync by hand.
+        cb({ dataUrl: canvas.toDataURL('image/png'), blob: blob, width: outW, height: outH });
       }, 'image/webp', OUT_QUALITY);
     });
 
-    // opts: { src, defaultRatio: '3:4'|'1:1'|'4:3'|'full', title, onDone({dataUrl, blob}) }
+    // opts: { src, defaultRatio: '3:4'|'1:1'|'4:3'|'full', title, onDone({dataUrl, blob, width, height}) }
     return {
       open: function (opts) {
         onDone = opts.onDone;
@@ -581,7 +586,7 @@
           toast('Ajout de la photo en cours…');
           uploadImage('gallery', result.blob).then(function (url) {
             return client.from('gallery_photos')
-              .insert({ alt: 'Photo du restaurant La Re-Naissance', image_path: url, position: state.souvenirs.length })
+              .insert({ alt: 'Photo du restaurant La Re-Naissance', image_path: url, position: state.souvenirs.length, width: result.width, height: result.height })
               .select().single();
           }).then(function (res) {
             if (res.error) throw res.error;
@@ -623,7 +628,7 @@
     var idx = indexOf(list, id);
     if (idx < 0) return;
     var item = list[idx];
-    edit = { kind: kind, id: id, src: item.src, name: item.name || '', idx: idx, blob: null };
+    edit = { kind: kind, id: id, src: item.src, name: item.name || '', idx: idx, blob: null, width: null, height: null };
     $('edit-title').textContent = kind === 'dish' ? 'Modifier le plat ' + (idx + 1) : 'Modifier la photo ' + (idx + 1);
     $('name-field').hidden = kind !== 'dish';
     $('edit-name').value = edit.name;
@@ -652,7 +657,7 @@
     cropper.open({
       src: edit.src,
       defaultRatio: editRatio(),
-      onDone: function (result) { edit.src = result.dataUrl; edit.blob = result.blob; $('edit-photo').src = result.dataUrl; }
+      onDone: function (result) { edit.src = result.dataUrl; edit.blob = result.blob; edit.width = result.width; edit.height = result.height; $('edit-photo').src = result.dataUrl; }
     });
   });
 
@@ -663,7 +668,7 @@
         src: dataUrl,
         defaultRatio: editRatio(),
         title: 'Changer la photo',
-        onDone: function (result) { edit.src = result.dataUrl; edit.blob = result.blob; $('edit-photo').src = result.dataUrl; }
+        onDone: function (result) { edit.src = result.dataUrl; edit.blob = result.blob; edit.width = result.width; edit.height = result.height; $('edit-photo').src = result.dataUrl; }
       });
     });
   });
@@ -698,7 +703,13 @@
         uploadedUrl = url;
         var patch = {};
         if (edit.kind === 'dish' && name !== item.name) patch.name = name;
-        if (uploadedUrl) patch.image_path = uploadedUrl;
+        if (uploadedUrl) {
+          patch.image_path = uploadedUrl;
+          // Dimensions of the newly exported file -- only meaningful for gallery photos (this is
+          // what tells the public site "photo entière" (top frame) from "recadrée en 3:4" (one of
+          // the 10 row frames); dishes have no such distinction, and their table has no matching columns.
+          if (edit.kind === 'photo') { patch.width = edit.width; patch.height = edit.height; }
+        }
         if (!Object.keys(patch).length) return null;
         if (edit.kind === 'dish') patch.updated_at = new Date().toISOString();
         return client.from(table).update(patch).eq('id', edit.id).then(function (res) {

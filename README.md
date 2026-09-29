@@ -135,7 +135,18 @@ Branché sur **Supabase** (projet `jnjyekeakikguumdjccf`) : base de données (ta
     pour la taille d'écran en cours, la rotation se déclenche automatiquement (même mécanisme de
     fondu que l'ancien diaporama mobile, désormais actif aussi sur tablette/desktop) : les
     emplacements font défiler toutes les photos, environ 10 secondes chacune, sans jamais bouger
-    ni changer de taille.
+    ni changer de taille. Une barre de progression (déjà utilisée sur mobile) s'affiche sur
+    n'importe quel format dès qu'une rotation est active, et reste invisible sinon.
+  - **La case du haut (1 photo, forme "presque carrée") est différente des 10 cases de rangée
+    (recadrées en 3:4)** : elle ne peut tourner qu'avec des photos de la MÊME forme qu'elle,
+    jamais avec une photo recadrée en 3:4 pour les rangées. La table `gallery_photos` a deux
+    colonnes `width`/`height` (dimensions réelles du fichier exporté, capturées par `admin.js`
+    au moment du recadrage) ; `index.html` compare leur ratio à 3:4 (±0.03) pour classer chaque
+    photo dans le bon groupe ("solo" ou "rangée") avant de décider quoi afficher où. Les deux
+    groupes tournent chacun à leur rythme, indépendamment. Une photo sans dimensions enregistrées
+    (ne devrait plus arriver une fois toutes les lignes passées par l'admin au moins une fois) est
+    traitée par défaut comme une photo de rangée -- le cas le plus courant, et le moins visible
+    si jamais faux.
   - Les photos jamais retouchées depuis l'admin gardent leur `srcset` réactif (`-p-500`/`-p-800`)
     reconstruit à partir du chemin ; celles ajoutées/remplacées depuis l'admin n'ont qu'un seul
     fichier (~900px), donc un simple `src`.

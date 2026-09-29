@@ -751,24 +751,25 @@ img[alt="Steak de lambi"] { object-position: 50% 78%; }
    Unconditional (not mobile-only): the rotation itself now also runs on tablet/desktop once
    there are more photos than the fan layout has room for. */
 .gallery-fade-overlay { position: absolute; object-fit: cover; pointer-events: none; opacity: 0; transition: opacity 1.8s ease; z-index: 2; }
-/* Mobile-only slideshow: only 5 of the 12 real photos fit the grid at once, so every ~10s
-   the whole grid crossfades to the next 5, cycling through all of them over time (desktop
-   just shows its extra 5 in a second row instead -- mobile has no room for that, this is
-   the equivalent). One shared bar (not per-photo) since all 5 change together as a single
-   group, not independently. Reported too far below the photos -- turned out to have nothing
-   to do with this element's own margin at all: Oak's own mobile .gallery-block carries a
-   flat 65px grid-row-gap between EVERY one of its flex children (confirmed measured: the
-   68px real gap was that 65px gap plus this rule's own harmless 3px margin-top, not a
-   65px margin anyone had actually set). Negative margin-top cancels that inherited gap back
-   down to the small distance actually wanted here, without touching the row-gap itself --
-   that would also shrink the (separately fine, unreported) heading-to-photos gap above it. */
-.gallery-progress { display: none; }
-@media screen and (max-width: 479px) {
-  .gallery-progress { display: block; width: 64px; height: 3px; margin: -62px auto 0; border-radius: 2px; background: rgba(23, 18, 12, 0.15); overflow: hidden; }
-  .gallery-progress-fill { width: 0%; height: 100%; background: var(--accent-color--a-500); border-radius: 2px; }
-  .gallery-progress-fill.is-running { animation: gallery-progress-fill 10s linear; }
-}
+/* Countdown bar for the gallery rotation (only shown once there are more photos than frames --
+   the JS toggles .is-visible, nothing here decides that on its own). Started mobile-only (a
+   phone had no room for a 2nd row, so its 5 photos rotated instead) and now runs on any screen
+   size once there are more photos than the current breakpoint has frames for. */
+.gallery-progress { display: none; width: 64px; height: 3px; margin: 24px auto 0; border-radius: 2px; background: rgba(23, 18, 12, 0.15); overflow: hidden; }
+.gallery-progress.is-visible { display: block; }
+.gallery-progress-fill { width: 0%; height: 100%; background: var(--accent-color--a-500); border-radius: 2px; }
+.gallery-progress-fill.is-running { animation: gallery-progress-fill 10s linear; }
 @keyframes gallery-progress-fill { from { width: 0%; } to { width: 100%; } }
+/* Reported too far below the photos on mobile -- turned out to have nothing to do with this
+   element's own margin at all: Oak's own mobile .gallery-block carries a flat 65px grid-row-gap
+   between EVERY one of its flex children (confirmed measured: the 68px real gap was that 65px
+   gap plus a margin, not a 65px margin anyone had actually set). Negative margin-top cancels
+   that inherited gap back down to the small distance actually wanted here, without touching the
+   row-gap itself -- that would also shrink the (separately fine, unreported) heading-to-photos
+   gap above it. Desktop/tablet have no such inherited gap, so they just keep the base margin above. */
+@media screen and (max-width: 479px) {
+  .gallery-progress { margin: -62px auto 0; }
+}
 /* Same scroll-pinning bug as Gallery above, one section later: .visit-section is
    position:sticky (Oak's base, all widths) so it locks to the top of the viewport the
    instant it's scrolled into view -- with no gap of its own and Gallery's own mobile
@@ -1741,36 +1742,61 @@ img[alt="Steak de lambi"] { object-position: 50% 78%; }
     }).catch(function () {});
 
     /* ---- Souvenir: variable count, static fill or rotation depending on how many there are ---- */
+    //
+    // The top frame is a different shape from the other 10 (near-square "photo entière" vs.
+    // their 3:4 crop) and always stays put -- what rotates THROUGH it is what's restricted: only
+    // photos shaped for it. A photo's stored width/height (captured once, when it was cropped in
+    // the admin) says which family it belongs to -- exactly 3:4 (what the admin's cropper always
+    // exports for a row-shaped crop) goes in the row pool, anything else (square, landscape, or
+    // whatever a "Photo entière" crop's own original shape was) goes in the top-frame pool.
+    // A photo with no stored dimensions (shouldn't happen once every row has been through the
+    // admin at least once) defaults to the row pool -- the common case, and the safe one: a
+    // slightly-off crop in a row frame is far less visible than a wrongly-shaped one alone at
+    // the top.
     function isTiny() { return window.matchMedia('(max-width: 479px)').matches; }
-    // Document order: the solo photo, then row 1's five, then row 2's five -- 11 in total.
-    // Row 2 is display:none below 480px (see CSS), so only the first 6 are ever visible there.
-    var allSlots = Array.prototype.slice.call(document.querySelectorAll('.gallery-image'));
-    var bar = document.querySelector('.gallery-progress-fill');
-    var FADE_MS = 1800; // matches .gallery-fade-overlay's own CSS transition duration
-    var CYCLE_MS = 10000;
-    var photos = null, offset = 0, timer = null;
-
-    function activeSlots() { return isTiny() ? allSlots.slice(0, 6) : allSlots; }
-
-    // One photo per slot, in order; any slot beyond how many photos exist is hidden rather
-    // than left showing a stale/broken image (only matters if there end up being fewer photos
-    // than slots -- today there are exactly enough to fill every one).
-    function fillStatic() {
-      for (var i = 0; i < allSlots.length; i++) {
-        if (photos[i]) { allSlots[i].style.display = ''; applyPhoto(allSlots[i], photos[i].image_path, photos[i].alt); }
-        else { allSlots[i].style.display = 'none'; }
-      }
+    var ROW_RATIO = 3 / 4, ROW_TOLERANCE = 0.03;
+    function isRowShaped(photo) {
+      if (!photo.width || !photo.height) return true;
+      return Math.abs(photo.width / photo.height - ROW_RATIO) <= ROW_TOLERANCE;
     }
 
-    // Same crossfade-overlay technique the mobile slideshow used to do on its own, now driven
-    // by whichever slot set is active and by the real photo list instead of a hardcoded pool.
-    function advance() {
-      var slots = activeSlots();
-      if (!slots.length) return;
-      var nextOffset = (offset + slots.length) % photos.length;
+    var soloSlot = document.querySelector('.gallery-image-block._solo .gallery-image');
+    // Document order: row 1's five, then row 2's five -- 10 in total. Row 2 is display:none
+    // below 480px (see CSS), so only the first 5 are ever visible there.
+    var rowSlots = Array.prototype.slice.call(document.querySelectorAll('.gallery-image-block:not(._solo) .gallery-image'));
+    var bar = document.querySelector('.gallery-progress-fill');
+    var barEl = document.querySelector('.gallery-progress');
+    var FADE_MS = 1800; // matches .gallery-fade-overlay's own CSS transition duration
+    var CYCLE_MS = 10000;
+    var pools = null; // { solo: [...], row: [...] }, set once fetched
+    var soloOffset = 0, rowOffset = 0, timer = null;
+
+    function activeRowSlots() { return isTiny() ? rowSlots.slice(0, 5) : rowSlots; }
+
+    // One photo per slot, in order; a slot beyond how many photos its pool has is hidden rather
+    // than left showing a stale/broken image (only matters if a pool ends up smaller than its
+    // slots -- today the row pool exactly fills all 10, and the solo pool has exactly 1).
+    function fillGroup(slots, pool) {
+      for (var i = 0; i < slots.length; i++) {
+        if (pool[i]) { slots[i].style.display = ''; applyPhoto(slots[i], pool[i].image_path, pool[i].alt); }
+        else { slots[i].style.display = 'none'; }
+      }
+    }
+    function fillStatic() {
+      if (soloSlot) fillGroup([soloSlot], pools.solo);
+      fillGroup(rowSlots, pools.row);
+    }
+
+    // Same crossfade-overlay technique the mobile slideshow used to do on its own, now driven by
+    // whichever slot set is active and by the real photo list instead of a hardcoded pool. Used
+    // for both the solo frame and the row frames -- each with its own pool/offset, so one rotating
+    // faster or slower than the other (e.g. only 2 photos ever qualify for the solo frame vs. 15
+    // for the rows) never gets mixed up.
+    function crossfadeGroup(slots, pool, offset) {
+      var nextOffset = (offset + slots.length) % pool.length;
       for (var i = 0; i < slots.length; i++) {
         var slot = slots[i];
-        var item = photos[(nextOffset + i) % photos.length];
+        var item = pool[(nextOffset + i) % pool.length];
         var v = sourcesFor(item.image_path);
         var parentRect = slot.parentNode.getBoundingClientRect();
         var rect = slot.getBoundingClientRect();
@@ -1795,7 +1821,12 @@ img[alt="Steak de lambi"] { object-position: 50% 78%; }
           }, FADE_MS + 80);
         })(slot, item, overlay, v);
       }
-      offset = nextOffset;
+      return nextOffset;
+    }
+    function advance() {
+      if (soloSlot && pools.solo.length > 1) soloOffset = crossfadeGroup([soloSlot], pools.solo, soloOffset);
+      var slots = activeRowSlots();
+      if (pools.row.length > slots.length) rowOffset = crossfadeGroup(slots, pools.row, rowOffset);
     }
     function restartBar() {
       if (!bar) return;
@@ -1805,26 +1836,32 @@ img[alt="Steak de lambi"] { object-position: 50% 78%; }
     }
     function startCycle() {
       stopCycle();
+      if (barEl) barEl.classList.add('is-visible');
       restartBar();
       timer = setInterval(function () { advance(); restartBar(); }, CYCLE_MS);
     }
     function stopCycle() {
       if (timer) { clearInterval(timer); timer = null; }
       if (bar) bar.classList.remove('is-running');
+      if (barEl) barEl.classList.remove('is-visible');
     }
-    // Re-evaluated on load and on every resize (phone rotation, window resize across the
-    // 480px line): only rotate once there are genuinely more photos than the CURRENT
-    // breakpoint's slot count; otherwise a plain static fill, same as the original markup.
+    // Re-evaluated on load and on every resize (phone rotation, window resize across the 480px
+    // line): only rotate (and only then show the countdown bar) once at least one of the two
+    // pools genuinely has more photos than its current slots -- otherwise a plain static fill,
+    // same as the original markup, and no bar since nothing is actually about to change.
     function sync() {
-      if (!photos || !photos.length) return;
-      if (photos.length > activeSlots().length) { if (!timer) startCycle(); }
+      if (!pools) return;
+      var needsRotation = (soloSlot && pools.solo.length > 1) || pools.row.length > activeRowSlots().length;
+      if (needsRotation) { if (!timer) startCycle(); }
       else { stopCycle(); fillStatic(); }
     }
 
-    if (allSlots.length) {
+    if (soloSlot || rowSlots.length) {
       client.from('gallery_photos').select('*').order('position').then(function (res) {
         if (res.error || !res.data || !res.data.length) return; // Supabase down/empty: keep the static HTML
-        photos = res.data;
+        pools = { solo: [], row: [] };
+        res.data.forEach(function (photo) { (isRowShaped(photo) ? pools.row : pools.solo).push(photo); });
+        if (!pools.solo.length) pools.solo = pools.row.slice(0, 1); // never leave the top frame empty
         fillStatic();
         sync();
         window.addEventListener('resize', sync);
