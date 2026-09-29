@@ -128,31 +128,36 @@ Branché sur **Supabase** (projet `jnjyekeakikguumdjccf`) : base de données (ta
   englobé dans des `try/catch`/vérifications qui ne font rien dans ce cas -- le HTML statique
   déjà dans la page (tel qu'il était à la dernière modification manuelle) continue de s'afficher
   normalement, jamais de page cassée.
-  - **Galerie "Souvenir" : positions et tailles des photos ne changent jamais.** Tant qu'il y a
-    assez de photos pour remplir chaque emplacement (11 sur tablette/desktop : 1 solo + 2 rangées
-    de 5 ; 6 sur mobile, la 2ᵉ rangée étant masquée en CSS en dessous de 480px), chaque emplacement
-    affiche une photo, statique, comme avant. Dès qu'il y a PLUS de photos que d'emplacements
-    pour la taille d'écran en cours, la rotation se déclenche automatiquement (même mécanisme de
-    fondu que l'ancien diaporama mobile, désormais actif aussi sur tablette/desktop) : les
-    emplacements font défiler toutes les photos, environ 10 secondes chacune, sans jamais bouger
-    ni changer de taille. Une barre de progression (déjà utilisée sur mobile) s'affiche sur
-    n'importe quel format dès qu'une rotation est active, et reste invisible sinon.
-  - **La case du haut (1 photo, forme "presque carrée") est différente des 10 cases de rangée
-    (3:4)** : chaque photo est envoyée là où elle sera LE MOINS recadrée, jamais forcée dans un
-    cadre qui la couperait mal. La table `gallery_photos` a deux colonnes `width`/`height`
-    (dimensions réelles du fichier exporté, capturées par `admin.js` au moment du recadrage) ;
-    `index.html` calcule, pour chaque photo, la fraction qui resterait visible une fois recadrée
-    dans chacun des deux formats (`min(ratio_photo/ratio_cadre, ratio_cadre/ratio_photo)` — 1 =
-    aucune perte, proche de 0 = presque tout coupé), et la classe dans celui qui coupe le moins.
-    Si elle ne rentre bien dans AUCUN des deux (moins de 45% visible partout — un panorama très
-    large ou une photo très étroite, par exemple), elle est exclue des deux rotations plutôt que
-    d'être forcée dans un cadre où elle serait mal coupée. Les deux groupes tournent chacun à leur
-    rythme, indépendamment. Une photo sans dimensions enregistrées (ne devrait plus arriver une
-    fois toutes les lignes passées par l'admin au moins une fois) est traitée par défaut comme une
-    photo de rangée -- le cas le plus courant, et le moins visible si jamais faux.
+  - **Galerie "Souvenir" : positions et tailles des cadres ne changent jamais** (en dessous de
+    480px, où le layout est une vraie grille CSS à cadres fixes -- voir plus bas pour le layout
+    "en éventail" au-dessus de 480px, qui n'a jamais forcé de cadre). 11 cadres au total sur
+    tablette/desktop (1 en haut + 2 rangées de 5), 6 sur mobile (la 2ᵉ rangée est masquée en CSS
+    en dessous de 480px). Tant qu'il y a assez de photos pour remplir chaque cadre, chacun affiche
+    une photo statique, comme avant. Dès qu'il y a PLUS de photos que de cadres pour la taille
+    d'écran en cours, la rotation se déclenche automatiquement (même mécanisme de fondu que
+    l'ancien diaporama mobile, actif sur tous les formats) : les cadres font défiler toutes les
+    photos, une seule liste unique dans l'ordre, environ 10 secondes chacune, sans jamais bouger
+    ni changer de taille. Une barre de progression s'affiche dès qu'une rotation est active, et
+    reste invisible sinon.
+  - **Sur mobile (<480px), le cadre du haut est en 4:3 (paysage), les 10 cadres de rangée sont en
+    3:4 (portrait) — ces dimensions ne changent jamais.** Chaque photo s'ajuste automatiquement au
+    cadre où elle atterrit via `object-fit: cover` (recadrage centré) : pas de classification par
+    forme, une seule liste de photos qui tourne dans tous les cadres, au plus simple. Au-dessus de
+    480px, le layout "en éventail" garde son fonctionnement d'origine (chaque photo garde sa
+    propre forme, hauteur commune, pas de recadrage) -- il n'a jamais eu besoin d'un cadre fixe.
   - Les photos jamais retouchées depuis l'admin gardent leur `srcset` réactif (`-p-500`/`-p-800`)
     reconstruit à partir du chemin ; celles ajoutées/remplacées depuis l'admin n'ont qu'un seul
     fichier (~900px), donc un simple `src`.
+  - **Ajout/remplacement d'une photo depuis l'admin : aucun recadrage requis.** La photo est
+    envoyée telle quelle (juste réduite si elle dépasse ~900px de large, jamais recadrée ni
+    agrandie) ; c'est la mise en page du site qui l'adapte automatiquement au cadre où elle
+    atterrit. Le bouton "Recadrer / zoomer" reste disponible dans la fiche d'une photo déjà
+    ajoutée, pour un ajustement manuel optionnel (par ex. recentrer le sujet) -- jamais requis.
+    Les plats de "Nos créations" gardent eux le recadrage classique (portrait/carré/paysage) au
+    moment de changer leur photo, leur cadre carrousel étant, lui, réellement à forme fixe.
+    La table `gallery_photos` garde ses colonnes `width`/`height` (plus utilisées par
+    `index.html` depuis cette simplification -- inoffensif de les laisser, pas retiré pour éviter
+    une migration destructive sans besoin réel).
 
 ## Audit
 

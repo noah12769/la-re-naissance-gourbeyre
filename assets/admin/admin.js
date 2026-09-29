@@ -162,6 +162,27 @@
     });
   }
 
+  // Gallery photos need no manual cropping: whatever shape the photo comes in, the public site's
+  // layout adapts it automatically to whichever frame it lands in. This only resizes it down (never
+  // enlarges, never crops) so a full-resolution phone photo doesn't get uploaded as-is.
+  function resizeToBlob(dataUrl) {
+    return new Promise(function (resolve, reject) {
+      var img = new Image();
+      img.onload = function () {
+        var scale = Math.min(1, OUT_WIDTH / img.naturalWidth);
+        var w = Math.max(1, Math.round(img.naturalWidth * scale));
+        var h = Math.max(1, Math.round(img.naturalHeight * scale));
+        var canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        canvas.toBlob(function (blob) { resolve(blob); }, 'image/webp', OUT_QUALITY);
+      };
+      img.onerror = function () { reject(new Error("Cette image n'a pas pu être ouverte. Essayez une photo JPG, PNG ou WebP.")); };
+      img.src = dataUrl;
+    });
+  }
+
   /* --------------------------------------------------------------- cropper */
 
   var cropper = (function () {
@@ -305,16 +326,11 @@
       // encode webp, toBlob silently gives back a PNG instead (blob.type says so) rather than
       // erroring -- extFromMime() picks the right file extension from that automatically.
       canvas.toBlob(function (blob) {
-        // width/height of the actual exported file, not the on-screen preview size -- this is
-        // what the public site later uses to tell a "photo entière" (goes in the one big frame
-        // at the top of the gallery) from a 3:4-cropped one (goes in one of the 10 row frames):
-        // a plain aspect-ratio check on width/height, no separate "which kind is this" field to
-        // keep in sync by hand.
-        cb({ dataUrl: canvas.toDataURL('image/png'), blob: blob, width: outW, height: outH });
+        cb({ dataUrl: canvas.toDataURL('image/png'), blob: blob });
       }, 'image/webp', OUT_QUALITY);
     });
 
-    // opts: { src, defaultRatio: '3:4'|'1:1'|'4:3'|'full', title, onDone({dataUrl, blob, width, height}) }
+    // opts: { src, defaultRatio: '3:4'|'1:1'|'4:3'|'full', title, onDone({dataUrl, blob}) }
     return {
       open: function (opts) {
         onDone = opts.onDone;
@@ -578,25 +594,20 @@
   function addPhoto() {
     pickPhoto().then(function (dataUrl) {
       if (!dataUrl) return;
-      cropper.open({
-        src: dataUrl,
-        defaultRatio: '3:4',
-        title: 'Ajouter une photo',
-        onDone: function (result) {
-          toast('Ajout de la photo en cours…');
-          uploadImage('gallery', result.blob).then(function (url) {
-            return client.from('gallery_photos')
-              .insert({ alt: 'Photo du restaurant La Re-Naissance', image_path: url, position: state.souvenirs.length, width: result.width, height: result.height })
-              .select().single();
-          }).then(function (res) {
-            if (res.error) throw res.error;
-            state.souvenirs.push(photoFromRow(res.data));
-            renderPhotos();
-            toast('Photo ajoutée à la fin de la galerie.');
-          }).catch(function (err) {
-            toast("Impossible d'ajouter la photo : " + errorMessage(err), true);
-          });
-        }
+      toast('Ajout de la photo en cours…');
+      resizeToBlob(dataUrl).then(function (blob) {
+        return uploadImage('gallery', blob);
+      }).then(function (url) {
+        return client.from('gallery_photos')
+          .insert({ alt: 'Photo du restaurant La Re-Naissance', image_path: url, position: state.souvenirs.length })
+          .select().single();
+      }).then(function (res) {
+        if (res.error) throw res.error;
+        state.souvenirs.push(photoFromRow(res.data));
+        renderPhotos();
+        toast('Photo ajoutée à la fin de la galerie.');
+      }).catch(function (err) {
+        toast("Impossible d'ajouter la photo : " + errorMessage(err), true);
       });
     });
   }
@@ -628,7 +639,7 @@
     var idx = indexOf(list, id);
     if (idx < 0) return;
     var item = list[idx];
-    edit = { kind: kind, id: id, src: item.src, name: item.name || '', idx: idx, blob: null, width: null, height: null };
+    edit = { kind: kind, id: id, src: item.src, name: item.name || '', idx: idx, blob: null };
     $('edit-title').textContent = kind === 'dish' ? 'Modifier le plat ' + (idx + 1) : 'Modifier la photo ' + (idx + 1);
     $('name-field').hidden = kind !== 'dish';
     $('edit-name').value = edit.name;
@@ -651,24 +662,38 @@
     $('edit-dialog').showModal();
   }
 
-  function editRatio() { return edit && edit.kind === 'photo' && edit.idx === 0 ? 'full' : '3:4'; }
+  // Matches the actual frame the photo will show in on the public site: the top gallery slot is
+  // 4:3, the other 10 (and every dish photo) are 3:4. Only used by "Recadrer / zoomer" below, an
+  // optional manual tool -- adding or replacing a photo no longer requires cropping at all, the
+  // layout adapts automatically to whatever shape comes in.
+  function editRatio() { return edit && edit.kind === 'photo' && edit.idx === 0 ? '4:3' : '3:4'; }
 
   $('btn-crop').addEventListener('click', function () {
     cropper.open({
       src: edit.src,
       defaultRatio: editRatio(),
-      onDone: function (result) { edit.src = result.dataUrl; edit.blob = result.blob; edit.width = result.width; edit.height = result.height; $('edit-photo').src = result.dataUrl; }
+      onDone: function (result) { edit.src = result.dataUrl; edit.blob = result.blob; $('edit-photo').src = result.dataUrl; }
     });
   });
 
   $('btn-replace').addEventListener('click', function () {
     pickPhoto().then(function (dataUrl) {
       if (!dataUrl) return;
+      // Gallery photos: no cropping needed, same as adding a new one -- just resize down and go.
+      // Dishes keep the cropper (their carousel frame is a fixed shape, unlike the gallery).
+      if (edit.kind === 'photo') {
+        resizeToBlob(dataUrl).then(function (blob) {
+          edit.src = dataUrl;
+          edit.blob = blob;
+          $('edit-photo').src = dataUrl;
+        }).catch(function (err) { toast(err.message, true); });
+        return;
+      }
       cropper.open({
         src: dataUrl,
         defaultRatio: editRatio(),
         title: 'Changer la photo',
-        onDone: function (result) { edit.src = result.dataUrl; edit.blob = result.blob; edit.width = result.width; edit.height = result.height; $('edit-photo').src = result.dataUrl; }
+        onDone: function (result) { edit.src = result.dataUrl; edit.blob = result.blob; $('edit-photo').src = result.dataUrl; }
       });
     });
   });
@@ -703,13 +728,7 @@
         uploadedUrl = url;
         var patch = {};
         if (edit.kind === 'dish' && name !== item.name) patch.name = name;
-        if (uploadedUrl) {
-          patch.image_path = uploadedUrl;
-          // Dimensions of the newly exported file -- only meaningful for gallery photos (this is
-          // what tells the public site "photo entière" (top frame) from "recadrée en 3:4" (one of
-          // the 10 row frames); dishes have no such distinction, and their table has no matching columns.
-          if (edit.kind === 'photo') { patch.width = edit.width; patch.height = edit.height; }
-        }
+        if (uploadedUrl) patch.image_path = uploadedUrl;
         if (!Object.keys(patch).length) return null;
         if (edit.kind === 'dish') patch.updated_at = new Date().toISOString();
         return client.from(table).update(patch).eq('id', edit.id).then(function (res) {

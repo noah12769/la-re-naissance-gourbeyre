@@ -822,11 +822,11 @@ img[alt="Steak de lambi"] { object-position: 50% 78%; }
    would stay cut off, so the gallery script scrolls the content up during the last stretch of
    the pin to bring the lower rows into view, and adds that same distance (--gallery-extra,
    measured in JS) to the scroll block (rule further up) so the pin itself doesn't get shorter. */
-/* Mobile: the group photo (first photo of the gallery) sits alone above the 2-column grid, at its
-   own 858:903 ratio; it is not part of the slideshow. Oak's 65px row gap is cancelled down to 10px. */
+/* Mobile: the top photo sits alone above the 2-column grid, in its own fixed 4:3 frame (the row
+   photos below are 3:4). Oak's 65px row gap is cancelled down to 10px. */
 @media screen and (max-width: 479px) {
   .gallery-image-block._solo { margin-bottom: -55px; }
-  .gallery-image-block._solo .gallery-image { width: 80% !important; aspect-ratio: 858 / 903 !important; }
+  .gallery-image-block._solo .gallery-image { width: 80% !important; aspect-ratio: 4 / 3 !important; }
 }
 /* Gallery photos are lazy-loaded, so on arrival they used to download while already on screen
    and show up as thin horizontal strips (half-decoded image) in the middle of the animation.
@@ -1744,62 +1744,35 @@ img[alt="Steak de lambi"] { object-position: 50% 78%; }
     /* ---- Souvenir: variable count, static fill or rotation depending on how many there are ---- */
     //
     // Two fixed frame shapes never change: the 10 row frames (3:4 portrait) and the 1 top frame
-    // (near-square, 858:903). Every photo displays via object-fit:cover, which always fills its
-    // frame completely -- the only question is HOW MUCH of the photo survives that crop. For a
-    // photo of ratio r going into a frame of ratio f, the fraction of the photo that stays visible
-    // is min(r/f, f/r): 1.0 means a perfect match (nothing lost), a value near 0 means almost all
-    // of it gets cropped away. A photo goes wherever that fraction is higher (crops less), and if
-    // it's too low for BOTH frames, the photo doesn't fit either one well enough to look right --
-    // it's left out of the rotation entirely rather than forced somewhere it'll look badly cropped
-    // or oddly zoomed. A photo with no stored dimensions (shouldn't happen once it's been through
-    // the admin at least once) defaults to the row frame -- today's common case, and the safe one.
+    // (4:3 landscape). object-fit:cover adapts whichever photo lands in a slot to that slot's
+    // shape -- no per-photo classification, a single pool of photos rotates through all the slots
+    // in document order (solo, then row 1's five, then row 2's five).
     function isTiny() { return window.matchMedia('(max-width: 479px)').matches; }
-    var ROW_RATIO = 3 / 4;
-    var SOLO_RATIO = 858 / 903;
-    var MIN_VISIBLE_FRACTION = 0.45; // below this for BOTH frames, the photo fits neither well
-    function visibleFraction(photoRatio, frameRatio) { return Math.min(photoRatio / frameRatio, frameRatio / photoRatio); }
-    // 'row' | 'solo' | 'exclude'
-    function classify(photo) {
-      if (!photo.width || !photo.height) return 'row';
-      var ratio = photo.width / photo.height;
-      var rowFit = visibleFraction(ratio, ROW_RATIO);
-      var soloFit = visibleFraction(ratio, SOLO_RATIO);
-      if (rowFit < MIN_VISIBLE_FRACTION && soloFit < MIN_VISIBLE_FRACTION) return 'exclude';
-      return rowFit >= soloFit ? 'row' : 'solo';
-    }
-
     var soloSlot = document.querySelector('.gallery-image-block._solo .gallery-image');
-    // Document order: row 1's five, then row 2's five -- 10 in total. Row 2 is display:none
-    // below 480px (see CSS), so only the first 5 are ever visible there.
+    // Row 2 is display:none below 480px (see CSS), so only the first 5 row slots (6 with the
+    // solo one) are ever visible there.
     var rowSlots = Array.prototype.slice.call(document.querySelectorAll('.gallery-image-block:not(._solo) .gallery-image'));
+    var allSlots = soloSlot ? [soloSlot].concat(rowSlots) : rowSlots;
     var bar = document.querySelector('.gallery-progress-fill');
     var barEl = document.querySelector('.gallery-progress');
     var FADE_MS = 1800; // matches .gallery-fade-overlay's own CSS transition duration
     var CYCLE_MS = 10000;
-    var pools = null; // { solo: [...], row: [...] }, set once fetched
-    var soloOffset = 0, rowOffset = 0, timer = null;
+    var photos = null; // set once fetched
+    var offset = 0, timer = null;
 
-    function activeRowSlots() { return isTiny() ? rowSlots.slice(0, 5) : rowSlots; }
+    function activeSlots() { return isTiny() ? allSlots.slice(0, 6) : allSlots; }
 
-    // One photo per slot, in order; a slot beyond how many photos its pool has is hidden rather
-    // than left showing a stale/broken image (only matters if a pool ends up smaller than its
-    // slots -- today the row pool exactly fills all 10, and the solo pool has exactly 1).
-    function fillGroup(slots, pool) {
-      for (var i = 0; i < slots.length; i++) {
-        if (pool[i]) { slots[i].style.display = ''; applyPhoto(slots[i], pool[i].image_path, pool[i].alt); }
-        else { slots[i].style.display = 'none'; }
-      }
-    }
+    // One photo per slot, in order; a slot beyond how many photos there are is hidden rather
+    // than left showing a stale/broken image.
     function fillStatic() {
-      if (soloSlot) fillGroup([soloSlot], pools.solo);
-      fillGroup(rowSlots, pools.row);
+      for (var i = 0; i < allSlots.length; i++) {
+        if (photos[i]) { allSlots[i].style.display = ''; applyPhoto(allSlots[i], photos[i].image_path, photos[i].alt); }
+        else { allSlots[i].style.display = 'none'; }
+      }
     }
 
     // Same crossfade-overlay technique the mobile slideshow used to do on its own, now driven by
-    // whichever slot set is active and by the real photo list instead of a hardcoded pool. Used
-    // for both the solo frame and the row frames -- each with its own pool/offset, so one rotating
-    // faster or slower than the other (e.g. only 2 photos ever qualify for the solo frame vs. 15
-    // for the rows) never gets mixed up.
+    // whichever slot set is active and by the real photo list instead of a hardcoded pool.
     function crossfadeGroup(slots, pool, offset) {
       var nextOffset = (offset + slots.length) % pool.length;
       for (var i = 0; i < slots.length; i++) {
@@ -1832,9 +1805,8 @@ img[alt="Steak de lambi"] { object-position: 50% 78%; }
       return nextOffset;
     }
     function advance() {
-      if (soloSlot && pools.solo.length > 1) soloOffset = crossfadeGroup([soloSlot], pools.solo, soloOffset);
-      var slots = activeRowSlots();
-      if (pools.row.length > slots.length) rowOffset = crossfadeGroup(slots, pools.row, rowOffset);
+      var slots = activeSlots();
+      if (photos.length > slots.length) offset = crossfadeGroup(slots, photos, offset);
     }
     function restartBar() {
       if (!bar) return;
@@ -1854,28 +1826,19 @@ img[alt="Steak de lambi"] { object-position: 50% 78%; }
       if (barEl) barEl.classList.remove('is-visible');
     }
     // Re-evaluated on load and on every resize (phone rotation, window resize across the 480px
-    // line): only rotate (and only then show the countdown bar) once at least one of the two
-    // pools genuinely has more photos than its current slots -- otherwise a plain static fill,
-    // same as the original markup, and no bar since nothing is actually about to change.
+    // line): only rotate (and only then show the countdown bar) once there are genuinely more
+    // photos than slots for the current screen -- otherwise a plain static fill, same as the
+    // original markup, and no bar since nothing is actually about to change.
     function sync() {
-      if (!pools) return;
-      var needsRotation = (soloSlot && pools.solo.length > 1) || pools.row.length > activeRowSlots().length;
-      if (needsRotation) { if (!timer) startCycle(); }
+      if (!photos) return;
+      if (photos.length > activeSlots().length) { if (!timer) startCycle(); }
       else { stopCycle(); fillStatic(); }
     }
 
-    if (soloSlot || rowSlots.length) {
+    if (allSlots.length) {
       client.from('gallery_photos').select('*').order('position').then(function (res) {
         if (res.error || !res.data || !res.data.length) return; // Supabase down/empty: keep the static HTML
-        pools = { solo: [], row: [] };
-        // 'exclude'd photos (fit neither frame well) simply take no part in either rotation --
-        // they still exist in the admin, just not shown here until re-cropped to a better shape.
-        res.data.forEach(function (photo) {
-          var c = classify(photo);
-          if (c === 'row') pools.row.push(photo);
-          else if (c === 'solo') pools.solo.push(photo);
-        });
-        if (!pools.solo.length) pools.solo = pools.row.slice(0, 1); // never leave the top frame empty
+        photos = res.data;
         fillStatic();
         sync();
         window.addEventListener('resize', sync);
