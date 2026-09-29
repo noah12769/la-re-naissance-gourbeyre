@@ -21,7 +21,7 @@
 </header>
 
 <main class="wrap">
-  <p class="notice"><strong>Mode aperçu.</strong> Les modifications sont gardées dans ce navigateur uniquement : elles ne sont pas encore publiées sur le site. La connexion à la base de données arrive à l'étape suivante.</p>
+  <p class="notice"><strong>Connecté à Supabase.</strong> Chaque modification est enregistrée directement dans la base et le stockage du site — pas de bouton "publier" séparé.</p>
 
   <div class="tabs" role="tablist" aria-label="Sections du site">
     <button class="tab" role="tab" id="tab-creations" aria-controls="panel-creations" aria-selected="true" type="button">Nos créations <span id="count-creations"></span></button>
@@ -50,7 +50,7 @@
     <ul class="photo-grid" id="photo-grid"></ul>
   </section>
 
-  <div class="panel-foot"><button class="btn-link btn" type="button" id="reset">Remettre les photos et noms d'origine</button></div>
+  <div class="panel-foot"><button class="btn-link btn" type="button" id="reset">Recharger depuis Supabase</button></div>
 </main>
 
 <input type="file" id="file-input" accept="image/*" hidden/>
@@ -116,6 +116,8 @@
 </dialog>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script src="assets/js/supabase.min.js"></script>
+<script src="assets/admin/supabase-config.js"></script>
 <script src="assets/admin/admin.js"></script>
 </body>
 </html>

@@ -1,80 +1,84 @@
-/* Admin preview: manage the "Nos créations" dishes and the "Souvenir" gallery photos.
+/* Admin: manage the "Nos créations" dishes and the "Souvenir" gallery photos, backed by
+ * Supabase (database + file storage + auth). See ../../../supabase/schema.sql for the
+ * tables, storage bucket and Row Level Security policies this relies on: reads are public,
+ * writes require a signed-in session (enforced server-side by RLS, not by this file).
  *
- * PREVIEW ONLY: nothing here reaches the public site yet. Changes are kept in this browser's
- * localStorage so the interface can be tried out. The next step replaces `load()` / `persist()`
- * with Supabase (database + file storage) and the placeholder login with Supabase Auth.
- *
- * Images are only ever handled as data URLs (never blob: URLs) because the site's CSP
- * (vercel.json) allows `img-src 'self' data:`.
+ * Images are uploaded as real files to the `site-media` storage bucket and referenced by
+ * their public URL. Existing site photos that haven't been touched from here yet still show
+ * up via their original `assets/images/...` path (that's what the database was seeded with)
+ * -- both kinds of path are treated the same way by imgUrl()/thumbFor() below.
  */
 (function () {
   'use strict';
 
-  var AUTH_KEY = 'lrn-admin-session';
-  var STORE_KEY = 'lrn-admin-preview-v1';
-  var IMG = 'assets/images/';
   var OUT_WIDTH = 900;      // max width of an exported (cropped) photo, same as the site's photos
   var OUT_QUALITY = 0.82;
   var MAX_FILE_MB = 25;
+  var BUCKET = 'site-media';
+  var BUCKET_MARKER = '/storage/v1/object/public/' + BUCKET + '/';
 
-  // Same guard as the login page (placeholder, see connexion.html).
-  try { if (sessionStorage.getItem(AUTH_KEY) !== '1') { location.replace('connexion.html'); return; } }
-  catch (e) { location.replace('connexion.html'); return; }
+  var client = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+  var state = { dishes: [], souvenirs: [] };
 
   /* ------------------------------------------------------------------ data */
 
-  // Mirrors what index.html shows today (same order). Will come from the database later.
-  function defaults() {
-    function dish(slug, name) {
-      return { id: 'dish-' + slug, name: name, src: IMG + 'dish-' + slug + '.webp', thumb: IMG + 'dish-' + slug + '-p-500.webp' };
-    }
-    function photo(slug, alt) {
-      return { id: 'photo-' + slug, alt: alt, src: IMG + 'gallery-' + slug + '.webp', thumb: IMG + 'gallery-' + slug + '-p-500.webp' };
-    }
-    return {
-      dishes: [
-        dish('steak-de-lambi', 'Steak de lambi'),
-        dish('montgolfiere-mer', 'Montgolfière de la mer'),
-        dish('millefeuille-redfish', 'Mille-feuille de redfish'),
-        dish('dessert-blancmanger', 'Dessert blanc-manger coco passion'),
-        dish('croquettes-porc', 'Croquettes de porc'),
-        dish('cote-de-boeuf', 'Côte de bœuf')
-      ],
-      souvenirs: [
-        photo('groupe-equipe', 'Photo de groupe au restaurant La Re-Naissance'),
-        photo('severine-olivier', 'Séverine et Olivier devant La Re-Naissance'),
-        photo('salle-bar', 'Le bar du restaurant'),
-        photo('equipe-entree', "L'équipe de La Re-Naissance devant le restaurant"),
-        photo('salle-exterieure-1', 'Façade extérieure du restaurant'),
-        photo('evenement-plage', 'Soirée événement La Re-Naissance à la plage'),
-        photo('salle-lounge', "Salon d'accueil du restaurant"),
-        photo('clients-selfie', 'Clients de La Re-Naissance'),
-        photo('salle-interieure-2', 'Salle du restaurant, ambiance lumineuse'),
-        photo('evenement-costume', 'Événement La Re-Naissance en tenue traditionnelle'),
-        photo('salle-interieure-3', 'Autre vue de la salle du restaurant')
-      ]
-    };
+  function isAbsolute(url) { return /^https?:\/\//.test(url); }
+
+  // Legacy site photos ("assets/images/dish-foo.webp") have a hand-made "-p-500" thumbnail
+  // sitting next to them; a freshly uploaded photo is a single file, so it IS its own thumb.
+  function thumbFor(imagePath) {
+    if (isAbsolute(imagePath)) return imagePath;
+    return imagePath.replace(/(\.[a-z0-9]+)$/i, '-p-500$1');
   }
 
-  var state = load();
+  function dishFromRow(row) { return { id: row.id, name: row.name, src: row.image_path, thumb: thumbFor(row.image_path) }; }
+  function photoFromRow(row) { return { id: row.id, alt: row.alt, src: row.image_path, thumb: thumbFor(row.image_path) }; }
 
-  function load() {
-    try {
-      var raw = localStorage.getItem(STORE_KEY);
-      if (raw) {
-        var s = JSON.parse(raw);
-        if (s && Array.isArray(s.dishes) && Array.isArray(s.souvenirs)) return s;
-      }
-    } catch (e) { /* storage blocked or corrupted: start from the defaults */ }
-    return defaults();
+  function loadData() {
+    return Promise.all([
+      client.from('dishes').select('*').order('position'),
+      client.from('gallery_photos').select('*').order('position')
+    ]).then(function (results) {
+      var dishesRes = results[0], photosRes = results[1];
+      if (dishesRes.error) throw dishesRes.error;
+      if (photosRes.error) throw photosRes.error;
+      state.dishes = dishesRes.data.map(dishFromRow);
+      state.souvenirs = photosRes.data.map(photoFromRow);
+    });
   }
 
-  function persist() {
-    try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); return true; }
-    catch (e) {
-      toast("Le navigateur n'a plus de place pour garder ces modifications (trop de photos ajoutées).", true);
-      return false;
-    }
+  // Every row's `position` reset to its current index in state.souvenirs (0 = top photo).
+  // Called after any reorder, add or delete so the stored order always matches what's shown.
+  function persistPhotoOrder() {
+    return Promise.all(state.souvenirs.map(function (p, i) {
+      return client.from('gallery_photos').update({ position: i }).eq('id', p.id);
+    })).then(function (results) {
+      var failed = results.find(function (r) { return r.error; });
+      if (failed) throw failed.error;
+    });
+  }
+
+  function extFromMime(type) {
+    var map = { 'image/webp': 'webp', 'image/jpeg': 'jpg', 'image/png': 'png' };
+    return map[type] || 'jpg';
+  }
+
+  function uploadImage(folder, blob) {
+    var path = folder + '/' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8) + '.' + extFromMime(blob.type);
+    return client.storage.from(BUCKET).upload(path, blob, { contentType: blob.type }).then(function (res) {
+      if (res.error) throw res.error;
+      return client.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+    });
+  }
+
+  // Best-effort cleanup of a photo this admin previously uploaded, once it's no longer used
+  // anywhere (replaced or deleted). Never touches a legacy /assets/images/ site file (there's
+  // no marker to strip, so it's simply skipped), and a failure here is silent: an orphaned
+  // file in storage costs a little space, it isn't worth failing the user's action over.
+  function deleteIfOwned(url) {
+    var idx = url ? url.indexOf(BUCKET_MARKER) : -1;
+    if (idx < 0) return;
+    client.storage.from(BUCKET).remove([url.slice(idx + BUCKET_MARKER.length)]).catch(function () {});
   }
 
   /* --------------------------------------------------------------- helpers */
@@ -86,7 +90,16 @@
     if (text != null) n.textContent = text;
     return n;
   }
-  function newId(prefix) { return prefix + '-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+  function indexOf(list, id) {
+    for (var i = 0; i < list.length; i++) if (list[i].id === id) return i;
+    return -1;
+  }
+  function errorMessage(err) { return (err && err.message) || 'erreur réseau'; }
+
+  function setBusy(btn, busy, label) {
+    if (busy) { btn.dataset.label = btn.textContent; btn.textContent = label || 'Patientez…'; btn.disabled = true; }
+    else { btn.disabled = false; if (btn.dataset.label) btn.textContent = btn.dataset.label; }
+  }
 
   var toastTimer = null;
   function toast(message, isError) {
@@ -120,7 +133,7 @@
     });
   }
 
-  // File -> data URL. Rejects non-images and very large files with a readable message.
+  // File -> data URL (for the file picker's immediate on-screen preview, before cropping).
   function readFile(file) {
     return new Promise(function (resolve, reject) {
       if (!file) return reject(new Error('Aucun fichier choisi.'));
@@ -284,14 +297,19 @@
       canvas.width = outW;
       canvas.height = outH;
       canvas.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, outW, outH);
-      var url = canvas.toDataURL('image/webp', OUT_QUALITY);
-      if (url.indexOf('data:image/webp') !== 0) url = canvas.toDataURL('image/jpeg', OUT_QUALITY); // Safari: no webp export
       var cb = onDone;
       close();
-      if (cb) cb(url);
+      if (!cb) return;
+      // toBlob is what actually gets uploaded; canvas.toDataURL alongside it is only for the
+      // instant on-screen preview while that upload is still in flight. If a browser can't
+      // encode webp, toBlob silently gives back a PNG instead (blob.type says so) rather than
+      // erroring -- extFromMime() picks the right file extension from that automatically.
+      canvas.toBlob(function (blob) {
+        cb({ dataUrl: canvas.toDataURL('image/png'), blob: blob });
+      }, 'image/webp', OUT_QUALITY);
     });
 
-    // opts: { src, defaultRatio: '3:4'|'1:1'|'4:3'|'full', title, onDone(dataUrl) }
+    // opts: { src, defaultRatio: '3:4'|'1:1'|'4:3'|'full', title, onDone({dataUrl, blob}) }
     return {
       open: function (opts) {
         onDone = opts.onDone;
@@ -328,9 +346,7 @@
       thumb.appendChild(im);
       var info = el('div', 'dish-info');
       info.appendChild(el('span', 'dish-num', 'Plat ' + (i + 1)));
-      var name = el('span', 'dish-name', dish.name);
-      if (dish.changed) name.appendChild(el('span', 'badge', 'Modifié'));
-      info.appendChild(name);
+      info.appendChild(el('span', 'dish-name', dish.name));
       row.appendChild(thumb);
       row.appendChild(info);
       row.appendChild(el('span', 'dish-edit', 'Modifier ›'));
@@ -414,10 +430,15 @@
   function movePhotoBy(id, delta, focusClass) {
     var from = indexOf(state.souvenirs, id);
     if (!moveItem(from, from + delta)) return;
-    if (persist()) toast('Photo déplacée en position ' + (from + delta + 1) + '.');
     renderPhotos();
     var again = document.querySelector('.photo-card[data-id="' + id + '"] .photo-move.' + focusClass);
     if (again && !again.disabled) again.focus();
+    persistPhotoOrder().then(function () {
+      toast('Photo déplacée en position ' + (from + delta + 1) + '.');
+    }).catch(function (err) {
+      toast("Le nouvel ordre n'a pas pu être enregistré : " + errorMessage(err), true);
+      loadData().then(renderPhotos);
+    });
   }
 
   var dragState = null;
@@ -501,9 +522,16 @@
       var after = photoCards().map(function (c) { return c.dataset.id; });
       state.souvenirs = after.map(function (id) { return byId[id]; });
       var from = before.indexOf(d.id), to = after.indexOf(d.id);
-      if (from !== to && persist()) toast('Photo déplacée de la position ' + (from + 1) + ' à la position ' + (to + 1) + '.');
+      if (from !== to) {
+        persistPhotoOrder().then(function () {
+          toast('Photo déplacée de la position ' + (from + 1) + ' à la position ' + (to + 1) + '.');
+        }).catch(function (err) {
+          toast("Le nouvel ordre n'a pas pu être enregistré : " + errorMessage(err), true);
+          loadData().then(renderPhotos);
+        });
+      }
     }
-    renderPhotos();   // also restores the saved order if the drag was cancelled
+    renderPhotos();
   }
 
   grid.addEventListener('pointerdown', function (e) {
@@ -549,10 +577,20 @@
         src: dataUrl,
         defaultRatio: '3:4',
         title: 'Ajouter une photo',
-        onDone: function (url) {
-          state.souvenirs.push({ id: newId('photo'), alt: 'Photo du restaurant La Re-Naissance', src: url, thumb: url, changed: true });
-          if (persist()) toast('Photo ajoutée à la fin de la galerie.');
-          renderPhotos();
+        onDone: function (result) {
+          toast('Ajout de la photo en cours…');
+          uploadImage('gallery', result.blob).then(function (url) {
+            return client.from('gallery_photos')
+              .insert({ alt: 'Photo du restaurant La Re-Naissance', image_path: url, position: state.souvenirs.length })
+              .select().single();
+          }).then(function (res) {
+            if (res.error) throw res.error;
+            state.souvenirs.push(photoFromRow(res.data));
+            renderPhotos();
+            toast('Photo ajoutée à la fin de la galerie.');
+          }).catch(function (err) {
+            toast("Impossible d'ajouter la photo : " + errorMessage(err), true);
+          });
         }
       });
     });
@@ -563,26 +601,29 @@
     if (idx < 0) return;
     confirmDialog('Supprimer la photo n°' + (idx + 1) + ' de la galerie ?', 'Supprimer').then(function (ok) {
       if (!ok) return;
-      state.souvenirs.splice(idx, 1);
-      if (persist()) toast('Photo supprimée.');
-      renderPhotos();
+      var item = state.souvenirs[idx];
+      client.from('gallery_photos').delete().eq('id', id).then(function (res) {
+        if (res.error) throw res.error;
+        state.souvenirs.splice(idx, 1);
+        renderPhotos();
+        toast('Photo supprimée.');
+        persistPhotoOrder().catch(function () {});   // renumber the rest; non-critical if it fails
+        deleteIfOwned(item.src);
+      }).catch(function (err) {
+        toast('Impossible de supprimer : ' + errorMessage(err), true);
+      });
     });
   }
 
-  function indexOf(list, id) {
-    for (var i = 0; i < list.length; i++) if (list[i].id === id) return i;
-    return -1;
-  }
-
   /* ---- edit dialog (dish or souvenir photo) ---- */
-  var edit = null; // { kind, id, src, name }
+  var edit = null; // { kind, id, src, name, idx, blob }
 
   function openEdit(kind, id) {
     var list = kind === 'dish' ? state.dishes : state.souvenirs;
     var idx = indexOf(list, id);
     if (idx < 0) return;
     var item = list[idx];
-    edit = { kind: kind, id: id, src: item.src, name: item.name || '', idx: idx };
+    edit = { kind: kind, id: id, src: item.src, name: item.name || '', idx: idx, blob: null };
     $('edit-title').textContent = kind === 'dish' ? 'Modifier le plat ' + (idx + 1) : 'Modifier la photo ' + (idx + 1);
     $('name-field').hidden = kind !== 'dish';
     $('edit-name').value = edit.name;
@@ -611,7 +652,7 @@
     cropper.open({
       src: edit.src,
       defaultRatio: editRatio(),
-      onDone: function (url) { edit.src = url; $('edit-photo').src = url; }
+      onDone: function (result) { edit.src = result.dataUrl; edit.blob = result.blob; $('edit-photo').src = result.dataUrl; }
     });
   });
 
@@ -622,7 +663,7 @@
         src: dataUrl,
         defaultRatio: editRatio(),
         title: 'Changer la photo',
-        onDone: function (url) { edit.src = url; $('edit-photo').src = url; }
+        onDone: function (result) { edit.src = result.dataUrl; edit.blob = result.blob; $('edit-photo').src = result.dataUrl; }
       });
     });
   });
@@ -636,22 +677,52 @@
     var list = edit.kind === 'dish' ? state.dishes : state.souvenirs;
     var item = list[indexOf(list, edit.id)];
     if (!item) return;
+    var name = item.name;
     if (edit.kind === 'dish') {
-      var name = $('edit-name').value.replace(/\s+/g, ' ').trim();
+      name = $('edit-name').value.replace(/\s+/g, ' ').trim();
       if (!name) {
         $('edit-error').textContent = 'Le nom du plat ne peut pas être vide.';
         $('edit-error').hidden = false;
         $('edit-name').focus();
         return;
       }
-      if (name !== item.name) { item.name = name; item.changed = true; }
     }
-    if (edit.src !== item.src) { item.src = edit.src; item.thumb = edit.src; item.changed = true; }
-    var moved = false;
-    if (edit.kind === 'photo') moved = moveItem(indexOf(state.souvenirs, edit.id), parseInt($('edit-pos').value, 10));
-    if (persist()) toast(moved ? 'Modification enregistrée, photo déplacée.' : 'Modification enregistrée.');
-    renderAll();
-    $('edit-dialog').close();
+    var table = edit.kind === 'dish' ? 'dishes' : 'gallery_photos';
+    var previousSrc = item.src;
+    var uploadedUrl = null;
+    var saveBtn = $('btn-save');
+    setBusy(saveBtn, true, 'Enregistrement…');
+
+    (edit.blob ? uploadImage(edit.kind === 'dish' ? 'dishes' : 'gallery', edit.blob) : Promise.resolve(null))
+      .then(function (url) {
+        uploadedUrl = url;
+        var patch = {};
+        if (edit.kind === 'dish' && name !== item.name) patch.name = name;
+        if (uploadedUrl) patch.image_path = uploadedUrl;
+        if (!Object.keys(patch).length) return null;
+        if (edit.kind === 'dish') patch.updated_at = new Date().toISOString();
+        return client.from(table).update(patch).eq('id', edit.id).then(function (res) {
+          if (res.error) throw res.error;
+        });
+      })
+      .then(function () {
+        if (edit.kind === 'dish') item.name = name;
+        if (uploadedUrl) { item.src = uploadedUrl; item.thumb = uploadedUrl; }
+        if (edit.kind !== 'photo') return null;
+        var newIdx = parseInt($('edit-pos').value, 10);
+        return moveItem(indexOf(state.souvenirs, edit.id), newIdx) ? persistPhotoOrder() : null;
+      })
+      .then(function () {
+        if (uploadedUrl && previousSrc !== uploadedUrl) deleteIfOwned(previousSrc);
+        setBusy(saveBtn, false);
+        toast('Modification enregistrée.');
+        renderAll();
+        $('edit-dialog').close();
+      })
+      .catch(function (err) {
+        setBusy(saveBtn, false);
+        toast("Impossible d'enregistrer : " + errorMessage(err), true);
+      });
   }
 
   $('btn-delete').addEventListener('click', function () {
@@ -687,21 +758,39 @@
   $('add-photo-top').addEventListener('click', addPhoto);
 
   $('logout').addEventListener('click', function () {
-    try { sessionStorage.removeItem(AUTH_KEY); } catch (e) {}
-    location.href = 'connexion.html';
+    client.auth.signOut().then(function () { location.href = 'connexion.html'; });
   });
 
   $('reset').addEventListener('click', function () {
-    confirmDialog("Remettre tous les noms et toutes les photos comme sur le site actuel ? Vos modifications de cet aperçu seront perdues.", 'Remettre').then(function (ok) {
+    confirmDialog('Recharger les plats et les photos depuis Supabase ? Toute modification non enregistrée dans une fenêtre ouverte sera perdue.', 'Recharger').then(function (ok) {
       if (!ok) return;
-      try { localStorage.removeItem(STORE_KEY); } catch (e) {}
-      state = defaults();
-      renderAll();
-      toast("Photos et noms d'origine remis.");
+      loadData().then(function () {
+        renderAll();
+        toast('Données rechargées depuis Supabase.');
+      }).catch(function (err) {
+        toast('Impossible de recharger : ' + errorMessage(err), true);
+      });
     });
   });
 
-  renderAll();
-  var initial = (location.hash || '').replace('#', '');
-  selectTab(TABS.indexOf(initial) >= 0 ? initial : 'creations');
+  /* -------------------------------------------------------------- startup */
+
+  // Gate on a real signed-in session (Supabase Auth) before loading or showing anything.
+  // Everything above only defines functions and wires listeners -- safe to run either way --
+  // it's this promise chain that actually fetches data and renders the page.
+  client.auth.getSession().then(function (res) {
+    if (!res.data.session) { location.replace('connexion.html'); return; }
+    return loadData().then(function () {
+      renderAll();
+      var initial = (location.hash || '').replace('#', '');
+      selectTab(TABS.indexOf(initial) >= 0 ? initial : 'creations');
+    });
+  }).catch(function (err) {
+    toast('Connexion à Supabase impossible : ' + errorMessage(err), true);
+  });
+
+  // Signed out from another tab, or the session expired: bounce back to the login page.
+  client.auth.onAuthStateChange(function (event) {
+    if (event === 'SIGNED_OUT') location.replace('connexion.html');
+  });
 })();

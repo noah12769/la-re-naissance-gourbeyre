@@ -27,28 +27,43 @@
     <small>Pas besoin de vous connecter pour visiter le site.</small>
   </div>
 </main>
+<script src="assets/js/supabase.min.js"></script>
+<script src="assets/admin/supabase-config.js"></script>
 <script>
-/* TEMPORARY placeholder login: the password is checked right here in the browser, so it protects
-   nothing (anyone can read this file). It only gates the admin *preview*, which cannot publish
-   anything yet. To be replaced by a real login (Supabase Auth) before the admin can change the
-   live site. */
+/* Real login via Supabase Auth. There is a single admin account for the whole site (one
+   shared password, as asked), so the email itself isn't something the person needs to
+   remember or type -- it's fixed here and only the password comes from the form. Change
+   ADMIN_EMAIL if the admin account in Supabase (Authentication > Users) ever changes. */
 (function () {
-  var PASSWORD = '1234';
-  var AUTH_KEY = 'lrn-admin-session';
-  try { if (sessionStorage.getItem(AUTH_KEY) === '1') { location.replace('admin.html'); return; } } catch (e) {}
+  var ADMIN_EMAIL = 'la.re.naissance97113@gmail.com';
+  var client = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
   var form = document.getElementById('login-form');
   var input = document.getElementById('password');
   var error = document.getElementById('login-error');
+  var submitBtn = form.querySelector('button[type="submit"]');
+
+  // Already signed in from an earlier visit (Supabase keeps the session in localStorage)?
+  client.auth.getSession().then(function (res) {
+    if (res.data.session) location.replace('admin.html');
+  });
+
   form.addEventListener('submit', function (e) {
     e.preventDefault();
-    if (input.value === PASSWORD) {
-      try { sessionStorage.setItem(AUTH_KEY, '1'); } catch (err) {}
+    error.hidden = true;
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Connexion…';
+    client.auth.signInWithPassword({ email: ADMIN_EMAIL, password: input.value }).then(function (res) {
+      if (res.error) throw res.error;
       location.href = 'admin.html';
-    } else {
+    }).catch(function () {
+      // Generic message on purpose: whether the password is wrong or the network failed,
+      // there is nothing actionable to tell apart here for a single shared password.
       error.hidden = false;
       input.value = '';
       input.focus();
-    }
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Se connecter';
+    });
   });
   input.addEventListener('input', function () { error.hidden = true; });
 })();

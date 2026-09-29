@@ -82,15 +82,38 @@ Toutes les images utilisées par le site sont en `.webp`, généralement en 3 ta
 (`-p-500`, `-p-800`, taille pleine) référencées via `srcset`/`sizes` pour servir la bonne
 résolution selon l'écran.
 
-## Espace admin (aperçu)
+## Espace admin
 
 `connexion.html` → `admin.html` (+ `assets/admin/`) : interface pour gérer les plats de « Nos
-créations » (nom + photo) et les photos de « Souvenir » (ajout, recadrage/zoom, suppression).
-**Aperçu uniquement pour l'instant** : les modifications restent dans le `localStorage` du
-navigateur et ne changent pas le site public. Le mot de passe (`1234`) est vérifié côté client
-dans `connexion.html` — il ne protège rien et doit être remplacé par Supabase Auth (avec la
-base de données + le stockage des photos) avant que l'admin puisse publier quoi que ce soit.
-Lien d'accès : « Connexion » dans le footer de `index.html`.
+créations » (nom + photo) et les photos de « Souvenir » (ajout, recadrage/zoom, suppression,
+réorganisation). Lien d'accès : « Connexion » dans le footer de `index.html`.
+
+Branché sur **Supabase** (projet `jnjyekeakikguumdjccf`) : base de données (tables `dishes` et
+`gallery_photos`), stockage de fichiers (bucket `site-media`) et authentification. Voir
+`../supabase/schema.sql` (un niveau au-dessus, pas déployé) pour le schéma complet, commenté,
+à coller dans l'éditeur SQL du projet si la base doit être recréée.
+
+- **`assets/admin/supabase-config.js`** : URL du projet + clé publique ("anon"/"publishable").
+  C'est volontairement une clé publique, sans danger à exposer côté client — ce qui protège
+  réellement les écritures, ce sont les règles RLS du schéma (lecture publique, écriture
+  réservée à un compte connecté). **Ne jamais** mettre la clé `service_role`/"Secret key" ici
+  ni ailleurs dans ce dépôt : elle contourne ces règles et ne doit jamais quitter le tableau de
+  bord Supabase.
+- **`assets/js/supabase.min.js`** : client JS de Supabase, mis en local (pas chargé depuis un
+  CDN) pour ne pas avoir à autoriser un hôte de plus dans la CSP (`script-src` n'accepte que
+  `'self'` pour les scripts du site).
+- Le compte de connexion de l'admin est un utilisateur Supabase Auth séparé du compte
+  Supabase lui-même (Authentication → Users dans le tableau de bord) — l'email est en dur
+  dans `connexion.html` (`ADMIN_EMAIL`, un seul compte partagé), seul le mot de passe est
+  saisi dans le formulaire.
+- Chaque photo ajoutée/remplacée depuis l'admin est uploadée dans le bucket `site-media`
+  (dossiers `dishes/` et `gallery/`) ; les photos jamais touchées depuis l'admin continuent de
+  pointer vers leur fichier d'origine dans `assets/images/` (c'est ce que la base a été semée
+  au départ) — les deux formes de chemin sont traitées pareil côté admin.
+- **`index.html` ne lit pas encore Supabase** : la page publique reste le HTML statique
+  actuel (galerie, carrousel des plats). Faire relire `index.html` depuis la base est une
+  étape distincte, volontairement pas encore faite pour ne pas risquer l'animation très
+  ajustée de ces sections — voir `NOTE-A-FAIRE-2026-09-19.md`.
 
 ## Audit
 
