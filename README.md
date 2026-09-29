@@ -146,10 +146,21 @@ Branché sur **Supabase** (projet `jnjyekeakikguumdjccf`) : base de données (ta
     cadre du haut que si `largeur / hauteur >= 0.85` (`TOP_MIN_RATIO` dans `index.html`) — un
     seuil choisi pour que la photo de groupe historique (ratio ~0,95, quasi carrée) reste éligible,
     tout en excluant les photos portraits classiques (ratio 0,75, la plupart de la galerie
-    actuelle). Les 10 cadres de rangée, eux, acceptent n'importe quelle photo sans restriction — y
-    compris celles éligibles au cadre du haut, qui peuvent apparaître aux deux endroits. Si aucune
-    photo n'est éligible au cadre du haut (ne devrait pas arriver en pratique), la première photo
-    de la liste y est affichée par défaut plutôt que de laisser le cadre vide.
+    actuelle). Si aucune photo n'est éligible au cadre du haut (ne devrait pas arriver en
+    pratique), la première photo de la liste y est affichée par défaut plutôt que de laisser le
+    cadre vide.
+  - **Jamais deux fois la même photo affichée en même temps.** Les 10 cadres de rangée acceptent
+    n'importe quelle photo (y compris celles éligibles au cadre du haut), mais à chaque instant la
+    photo actuellement affichée dans le cadre du haut est exclue de la sélection des cadres de
+    rangée pour cet instant précis -- elle continue d'apparaître normalement dans les rangées
+    quand ce n'est plus elle qui est en haut.
+  - **Chaque cadre a un contour noir visible (2px), sur tous les formats d'écran** -- une demande
+    explicite, pas un reste de mise au point.
+  - **Desktop/tablette (≥480px) : la rotation ne démarre que s'il y a au moins 11 photos de PLUS
+    que ce que l'écran peut montrer** (`NONTINY_SURPLUS` dans `index.html`) -- avec les 13 photos
+    actuelles, l'affichage des 11 cadres reste donc volontairement figé pour l'instant. Sur mobile
+    (<480px, 6 cadres), la rotation démarre dès qu'il y a ne serait-ce qu'une photo de plus que
+    l'écran peut montrer, comme avant.
   - Les photos jamais retouchées depuis l'admin gardent leur `srcset` réactif (`-p-500`/`-p-800`)
     reconstruit à partir du chemin ; celles ajoutées/remplacées depuis l'admin n'ont qu'un seul
     fichier (~900px), donc un simple `src`.

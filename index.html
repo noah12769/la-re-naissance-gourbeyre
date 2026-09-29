@@ -378,6 +378,8 @@
   .dish-item-image { height: clamp(120px, calc(var(--vh, 1vh) * 36), 340px) !important; }
 }
 .gallery-image-block._2nd { display: none; }
+/* Requested: a visible black border around every "Souvenir" frame, on every screen size. */
+.gallery-image { border: 2px solid #000; }
 /* "Steak de lambi" photo shows 3 plates receding diagonally, the real hero plate being
    the large, fully-in-focus one at the BOTTOM of the frame (the two behind it are smaller/
    softer, just depth). object-fit:cover's default centering (50% 50%) crops around the
@@ -1771,8 +1773,19 @@ img[alt="Steak de lambi"] { object-position: 50% 78%; }
     var CYCLE_MS = 8000;
     var topPool = null, rowPool = null; // set once fetched
     var topOffset = 0, rowOffset = 0, timer = null;
+    // Requested: keep the desktop/tablet 11-photo layout fully static with the gallery's current
+    // content -- only start rotating there once there's a real surplus (11 MORE photos than the
+    // 11 slots need). Below 480px there's already comfortable headroom (13 photos for 6 slots), so
+    // that one keeps rotating as soon as it has more photos than slots, same as before.
+    var NONTINY_SURPLUS = 11;
 
     function activeRowSlots() { return isTiny() ? rowSlots.slice(0, 5) : rowSlots; }
+    function topNeedsRotation() { return isTiny() ? topPool.length > 1 : topPool.length >= 1 + NONTINY_SURPLUS; }
+    function rowNeedsRotation(slots) { return isTiny() ? rowPool.length > slots.length : rowPool.length >= slots.length + NONTINY_SURPLUS; }
+
+    // A photo never shows in two slots at once: whatever the top slot is currently showing is
+    // left out of the row pool for that same fill/tick.
+    function without(pool, id) { return id ? pool.filter(function (p) { return p.id !== id; }) : pool; }
 
     // One photo per slot, in order; a slot beyond how many photos its pool has is hidden rather
     // than left showing a stale/broken image.
@@ -1783,49 +1796,90 @@ img[alt="Steak de lambi"] { object-position: 50% 78%; }
       }
     }
     function fillStatic() {
-      if (soloSlot) fillGroup([soloSlot], topPool);
-      fillGroup(rowSlots, rowPool);
+      cancelPendingFades();
+      var topList = topPool.slice(0, 1);
+      if (soloSlot) fillGroup([soloSlot], topList);
+      fillGroup(rowSlots, without(rowPool, topList.length ? topList[0].id : null));
+    }
+
+    // In-flight crossfades (overlay element + its pending setTimeout), tracked so a resize or any
+    // other re-render that happens mid-fade can cancel them cleanly instead of leaving an orphaned
+    // overlay on screen and a stale timeout that still fires later and corrupts a slot that a
+    // meanwhile static fill already set -- the bug that used to need a page reload to clear.
+    var pendingFades = [];
+    function cancelPendingFades() {
+      pendingFades.forEach(function (f) { clearTimeout(f.timer); if (f.overlay.parentNode) f.overlay.remove(); });
+      pendingFades = [];
     }
 
     // Same crossfade-overlay technique the mobile slideshow used to do on its own, now driven by
     // whichever slot set is active and by the real photo list instead of a hardcoded pool.
-    function crossfadeGroup(slots, pool, offset) {
-      var nextOffset = (offset + slots.length) % pool.length;
-      for (var i = 0; i < slots.length; i++) {
-        var slot = slots[i];
-        var item = pool[(nextOffset + i) % pool.length];
+    // excludeId (row group only): skip this one photo -- it's what the top slot is showing this
+    // tick -- taking the next candidate instead so nothing is ever shown twice at once.
+    // Returns { nextOffset, chosen }: nextOffset is this batch's own start index, fed back in next
+    // time so the following batch resumes slots.length further along; chosen is what actually got
+    // assigned to the slots (not always pool[nextOffset...] once exclusion skips something), so a
+    // caller that needs to know what's now on screen (the top slot's own id, for the row group's
+    // exclusion) reads it from here rather than re-deriving it from the offset.
+    function crossfadeGroup(slots, pool, offset, excludeId) {
+      var start = (offset + slots.length) % pool.length;
+      var chosen = [];
+      var i = start, guard = 0;
+      while (chosen.length < slots.length && guard < pool.length * 2) {
+        var candidate = pool[i % pool.length];
+        if (!excludeId || candidate.id !== excludeId) chosen.push(candidate);
+        i++; guard++;
+      }
+      for (var k = 0; k < slots.length; k++) {
+        var slot = slots[k];
+        var item = chosen[k];
         var v = sourcesFor(item.image_path);
         var parentRect = slot.parentNode.getBoundingClientRect();
         var rect = slot.getBoundingClientRect();
+        // Inset by the slot's own border so the overlay only ever covers the CONTENT area -- the
+        // black frame border stays on top and never gets covered during the fade.
+        var slotStyle = getComputedStyle(slot);
+        var bT = parseFloat(slotStyle.borderTopWidth) || 0, bR = parseFloat(slotStyle.borderRightWidth) || 0;
+        var bB = parseFloat(slotStyle.borderBottomWidth) || 0, bL = parseFloat(slotStyle.borderLeftWidth) || 0;
         var overlay = document.createElement('img');
         overlay.className = 'gallery-fade-overlay';
         overlay.alt = '';
-        overlay.style.left = Math.round(rect.left - parentRect.left) + 'px';
-        overlay.style.top = Math.round(rect.top - parentRect.top) + 'px';
-        overlay.style.width = Math.round(rect.width) + 'px';
-        overlay.style.height = Math.round(rect.height) + 'px';
+        overlay.style.left = Math.round(rect.left - parentRect.left + bL) + 'px';
+        overlay.style.top = Math.round(rect.top - parentRect.top + bT) + 'px';
+        overlay.style.width = Math.round(rect.width - bL - bR) + 'px';
+        overlay.style.height = Math.round(rect.height - bT - bB) + 'px';
         overlay.src = v.src;
         slot.parentNode.appendChild(overlay);
         (function (slot, item, overlay, v) {
           requestAnimationFrame(function () {
             requestAnimationFrame(function () { overlay.style.opacity = '1'; });
           });
-          setTimeout(function () {
+          var entry = { overlay: overlay };
+          entry.timer = setTimeout(function () {
             if (v.srcset) { slot.srcset = v.srcset; slot.sizes = v.sizes; } else { slot.removeAttribute('srcset'); slot.removeAttribute('sizes'); }
             slot.src = v.src;
             slot.alt = item.alt || '';
             overlay.remove();
+            var idx = pendingFades.indexOf(entry);
+            if (idx >= 0) pendingFades.splice(idx, 1);
           }, FADE_MS + 80);
+          pendingFades.push(entry);
         })(slot, item, overlay, v);
       }
-      return nextOffset;
+      return { nextOffset: start, chosen: chosen };
     }
     // One shared clock drives both groups so everything visibly changes together, even though
     // each pulls from its own pool (and either one alone may have too few photos to need moving).
     function advance() {
-      if (soloSlot && topPool.length > 1) topOffset = crossfadeGroup([soloSlot], topPool, topOffset);
+      var topChosen = topPool.length ? [topPool[topOffset % topPool.length]] : [];
+      if (soloSlot && topNeedsRotation()) {
+        var topResult = crossfadeGroup([soloSlot], topPool, topOffset);
+        topOffset = topResult.nextOffset;
+        topChosen = topResult.chosen;
+      }
+      var topId = topChosen.length ? topChosen[0].id : null;
       var slots = activeRowSlots();
-      if (rowPool.length > slots.length) rowOffset = crossfadeGroup(slots, rowPool, rowOffset);
+      if (rowNeedsRotation(slots)) rowOffset = crossfadeGroup(slots, rowPool, rowOffset, topId).nextOffset;
     }
     function restartBar() {
       if (!bar) return;
@@ -1841,16 +1895,19 @@ img[alt="Steak de lambi"] { object-position: 50% 78%; }
     }
     function stopCycle() {
       if (timer) { clearInterval(timer); timer = null; }
+      cancelPendingFades();
       if (bar) bar.classList.remove('is-running');
       if (barEl) barEl.classList.remove('is-visible');
     }
     // Re-evaluated on load and on every resize (phone rotation, window resize across the 480px
     // line): only rotate (and only then show the countdown bar) once at least one of the two
-    // pools genuinely has more photos than its current slots -- otherwise a plain static fill,
-    // same as the original markup, and no bar since nothing is actually about to change.
+    // pools genuinely has enough of a surplus for its current screen size -- otherwise a plain
+    // static fill, same as the original markup, and no bar since nothing is actually about to
+    // change.
     function sync() {
       if (!rowPool) return;
-      var needsRotation = (soloSlot && topPool.length > 1) || rowPool.length > activeRowSlots().length;
+      var slots = activeRowSlots();
+      var needsRotation = (soloSlot && topNeedsRotation()) || rowNeedsRotation(slots);
       if (needsRotation) { if (!timer) startCycle(); }
       else { stopCycle(); fillStatic(); }
     }
