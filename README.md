@@ -58,6 +58,28 @@ raconte l'historique complet) :
 - **`--hero-pad-top`** : synchronisé en JS sur la vraie hauteur rendue de `.hero-image`
   (après son propre cap de hauteur), pour garder un espacement constant entre l'image et
   le reste du hero quel que soit l'écran.
+- **Vidéo du hero (`.hero-video`)** : remplace la photo statique d'origine, posée en enfant de
+  `.hero-image` (qui garde exactement les mêmes hauteurs/breakpoints qu'avant — rien n'a changé
+  à ce niveau, la vidéo suit juste cette boîte via `object-fit: cover`). `assets/video/hero-video.mp4`
+  (~6 Mo, 1920×1080, sans son, 19s) est un extrait recadré de la vidéo promo du client
+  (`20-08-2026 - CONTENU PRESENTATIVE V2.mp4`, 243 Mo à l'origine) : le tout début (image noire,
+  <0,5s) et le carton de fin (logo + coordonnées, à partir d'environ 19,5s) ont été retirés, pour
+  ne garder que les plans du restaurant en boucle (texte/coordonnées redondants avec le reste du
+  site, pas voulus dans un arrière-plan qui boucle).
+  - **Chargement sans accroc, sur connexion lente y compris** : vidéo ET photo de secours restent
+    invisibles (seule la couleur d'accent de fond est visible) tant qu'elles n'ont pas fini de
+    charger -- sinon un navigateur peut peindre une image encore en train de télécharger
+    "tronquée" (le haut visible, de la couleur brute en dessous), ce qui ressemble à un bug
+    d'affichage. Géré par le script juste avant le "Hero title fit-to-width" plus bas : un
+    `Image()` préchargé déclenche `.hero-bg-ready` sur `.hero-image` (la classe `.w-mod-js` sur
+    `<html>`, posée par le tout petit script en `<head>`, masque le `background-image` inline par
+    défaut tant que cette classe n'est pas là -- un visiteur sans JS garde l'image affichée
+    normalement, sans ce filtre) ; la vidéo se révèle elle-même sur son événement `loadeddata`.
+    Chacun a sa propre minuterie de secours (3s) pour ne jamais rester caché indéfiniment si le
+    réseau cale.
+  - `assets/images/hero-facade.webp` (la photo de secours, utilisée aussi comme `poster` de la
+    vidéo) recompressée de 392 Ko à 245 Ko (1600px de large, qualité 65) pendant ce chantier --
+    photo simplement trop lourde pour un élément visible dès le premier écran.
 - **Menu mobile (`.navbar-menu-block`)** : son ouverture/fermeture est pilotée entièrement
   par Webflow (IX2) via `style.height` inline — jamais de classe, jamais de transition CSS.
   Fermé = exactement `'0px'` ; ouvert peut finir à une valeur vide `''` une fois l'animation
